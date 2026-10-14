@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:15
+    container_name: dukat-db
+    environment:
+      POSTGRES_USER: dukatuser
+      POSTGRES_PASSWORD: dukatpassword
+      POSTGRES_DB: dukat_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - dukat_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  dukat_postgres_data:
