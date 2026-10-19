@@ -1,4 +1,5 @@
 package com.example.demoapp.model;
 
 public enum HouseholdRole {
+    OWNER, MEMBER
 }
