@@ -35,6 +35,9 @@ describe('AppComponent', () => {
     transactions: FinanceTransaction[] = [],
   ) {
     http.expectOne('/api/accounts').flush(accounts);
+    http
+      .expectOne('/api/categories?includeInactive=true')
+      .flush([{ id: 10, name: 'Jedzenie', active: true }]);
     http.expectOne('/api/transactions').flush(transactions);
     flushForecast();
   }
@@ -54,11 +57,23 @@ describe('AppComponent', () => {
     });
   }
 
+  function flushAuth() {
+    http
+      .expectOne('/api/auth/login')
+      .flush({
+        accessToken: 'test-jwt',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+        user: { id: 1, username: 'user', email: 'user@example.com', role: 'USER' },
+      });
+  }
+
   async function loggedIn(transactions: FinanceTransaction[] = []) {
     const fixture = TestBed.createComponent(AppComponent);
     await fixture.whenStable();
     fixture.componentInstance.password = 'password';
     fixture.componentInstance.loadAccounts();
+    flushAuth();
     flushDashboard([account], transactions);
     await fixture.whenStable();
     return fixture;
@@ -86,25 +101,30 @@ describe('AppComponent', () => {
     await fixture.whenStable();
     fixture.componentInstance.password = 'password';
     fixture.componentInstance.loadAccounts();
+    flushAuth();
     flushDashboard([], []);
     await fixture.whenStable();
     expect(fixture.nativeElement.textContent).toContain('Brak kont do wyświetlenia');
     expect(fixture.nativeElement.querySelector('[role="status"]')).toBeNull();
   });
 
-  it('explains authentication errors and cancels the other dashboard request', async () => {
+  it('explains authentication errors without loading private data', async () => {
     const fixture = TestBed.createComponent(AppComponent);
     await fixture.whenStable();
     fixture.componentInstance.password = 'wrong-password';
     fixture.componentInstance.loadAccounts();
-    const accounts = http.expectOne('/api/accounts');
-    const history = http.expectOne('/api/transactions');
-    accounts.flush('', { status: 401, statusText: 'Unauthorized' });
+    http
+      .expectOne('/api/auth/login')
+      .flush(
+        { message: 'Nieprawidłowy login lub hasło' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
       'Nieprawidłowy login lub hasło',
     );
-    expect(history.cancelled).toBe(true);
+    http.expectNone('/api/accounts');
+    http.expectNone('/api/transactions');
     expect(fixture.componentInstance.loading()).toBe(false);
   });
 
@@ -113,9 +133,8 @@ describe('AppComponent', () => {
     await fixture.whenStable();
     fixture.componentInstance.password = 'password';
     fixture.componentInstance.loadAccounts();
-    const accounts = http.expectOne('/api/accounts');
-    http.expectOne('/api/transactions');
-    accounts.error(new ProgressEvent('error'));
+    const auth = http.expectOne('/api/auth/login');
+    auth.error(new ProgressEvent('error'));
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
       'Nie można połączyć się z backendem',
@@ -137,6 +156,8 @@ describe('AppComponent', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.componentInstance.password = 'password';
     fixture.componentInstance.loadAccounts();
+    flushAuth();
+    http.expectNone('/api/categories?includeInactive=true');
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
       'HTML zamiast danych API',
@@ -219,7 +240,7 @@ describe('AppComponent', () => {
       description: 'Kawa po pracy',
       amount: 20,
       transactionDate: app.transactionDraft.date,
-      category: app.transactionDraft.category,
+      category: 'Jedzenie',
       type: 'EXPENSE',
       accountName: account.name,
     };
@@ -270,6 +291,20 @@ describe('AppComponent', () => {
     await fixture.whenStable();
     expect(app.accounts()).toHaveLength(2);
     expect(app.totalBalance()).toBe(1050);
+  });
+
+  it('cancels an unfinished refresh when signing out', async () => {
+    const fixture = await loggedIn();
+    const app = fixture.componentInstance;
+    app.refresh();
+    const accounts = http.expectOne('/api/accounts');
+    const history = http.expectOne('/api/transactions');
+    const categories = http.expectOne('/api/categories?includeInactive=true');
+    app.signOut();
+    expect(accounts.cancelled).toBe(true);
+    expect(history.cancelled).toBe(true);
+    expect(categories.cancelled).toBe(true);
+    expect(app.loaded()).toBe(false);
   });
 
   it('returns to login and removes displayed data on sign out', async () => {

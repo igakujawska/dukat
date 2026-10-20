@@ -1,205 +1,678 @@
 package com.example.demoapp;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import static org.junit.jupiter.api.Assertions.*;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.math.BigDecimal;
-import java.util.Base64;
-import java.util.UUID;
-import java.nio.charset.StandardCharsets;
+import java.net.URI;
+import java.net.http.*;
+import java.time.*;
+import java.util.*;
+import java.util.concurrent.*;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.*;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.*;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import tools.jackson.databind.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
+// Prawdziwy PostgreSQL i Flyway: H2 nie odtwarza blokad ani składni migracji PostgreSQL.
+@Testcontainers
 @SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {
-                "spring.datasource.url=jdbc:h2:mem:dukat_openapi_test;DB_CLOSE_DELAY=-1",
-                "spring.datasource.driver-class-name=org.h2.Driver",
-                "spring.datasource.username=sa",
-                "spring.datasource.password=",
-                "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-                "spring.jpa.hibernate.ddl-auto=create-drop",
-                "spring.security.user.name=integration-test",
-                "spring.security.user.password=integration-test-password"
-        }
+  webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+  properties = {
+    "app.bootstrap.enabled=false",
+    "app.scheduling.enabled=false",
+    "app.jwt.secret=QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=",
+    "spring.jpa.hibernate.ddl-auto=validate",
+  }
 )
 class DemoappApplicationTests {
 
-    @Value("${local.server.port}")
-    private int port;
+  @Container
+  static final PostgreSQLContainer postgres = new PostgreSQLContainer(
+    "postgres:15"
+  );
 
-    private final ObjectMapper json = new ObjectMapper();
+  @DynamicPropertySource
+  static void database(DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", postgres::getJdbcUrl);
+    registry.add("spring.datasource.username", postgres::getUsername);
+    registry.add("spring.datasource.password", postgres::getPassword);
+  }
 
-    @Test
-    void openApiDocumentIncludesTransactions() throws Exception {
-        HttpResponse<String> response = get("/v3/api-docs");
+  @Value("${local.server.port}")
+  int port;
 
-        assertEquals(200, response.statusCode(), response.body());
-        assertTrue(response.body().contains("\"openapi\""), response.body());
-        assertTrue(response.body().contains("\"/api/transactions\""), response.body());
+  @Autowired
+  JdbcTemplate jdbc;
+
+  @Autowired
+  JwtEncoder encoder;
+
+  private final ObjectMapper json = new ObjectMapper();
+  private String token;
+  private String username;
+  private long categoryId;
+  private final String password = "Integration-password-2026!";
+
+  @BeforeEach
+  void user() throws Exception {
+    username = "test-" + UUID.randomUUID().toString().substring(0, 12);
+    var r = request(
+      "POST",
+      "/api/auth/register",
+      Map.of(
+        "username",
+        username,
+        "email",
+        username + "@example.com",
+        "password",
+        password
+      ),
+      null
+    );
+    assertEquals(201, r.statusCode(), r.body());
+    token = tree(r).get("accessToken").asText();
+    categoryId = tree(request("GET", "/api/categories", null, token))
+      .get(0)
+      .get("id")
+      .asLong();
+  }
+
+  @Test
+  void migrationCreatesRealPostgresSchemaAndSwaggerSupportsBearer()
+    throws Exception {
+    assertTrue(
+      jdbc.queryForObject(
+        "SELECT count(*) FROM flyway_schema_history WHERE success AND version IN ('1','2')",
+        Integer.class
+      ) == 2
+    );
+    var doc = request("GET", "/v3/api-docs", null, null);
+    assertEquals(200, doc.statusCode());
+    var schema = tree(doc);
+    assertEquals(
+      "bearer",
+      schema.at("/components/securitySchemes/bearerAuth/scheme").asText()
+    );
+    assertTrue(doc.body().contains("/api/transfers"));
+    assertTrue(doc.body().contains("categoryId"));
+    var swagger = request("GET", "/swagger-ui/index.html", null, null);
+    assertEquals(200, swagger.statusCode());
+    assertTrue(swagger.body().contains("Swagger UI"));
+  }
+
+  @Test
+  void loginUsesHashedPasswordsAndDoesNotExposeTheHash() throws Exception {
+    var response = request(
+      "POST",
+      "/api/auth/login",
+      Map.of("username", username.toUpperCase(), "password", password),
+      null
+    );
+    assertEquals(200, response.statusCode(), response.body());
+    assertEquals("Bearer", tree(response).get("tokenType").asText());
+    assertFalse(tree(response).get("user").has("password"));
+    String stored = jdbc.queryForObject(
+      "SELECT password FROM users WHERE username=?",
+      String.class,
+      username
+    );
+    assertTrue(stored.startsWith("$2"));
+    assertNotEquals(password, stored);
+    assertEquals(
+      401,
+      request(
+        "POST",
+        "/api/auth/login",
+        Map.of("username", username, "password", "wrong"),
+        null
+      ).statusCode()
+    );
+    assertEquals(
+      409,
+      request(
+        "POST",
+        "/api/auth/register",
+        Map.of(
+          "username",
+          username,
+          "email",
+          "other@example.com",
+          "password",
+          password
+        ),
+        null
+      ).statusCode()
+    );
+    assertEquals(
+      400,
+      request(
+        "POST",
+        "/api/auth/register",
+        Map.of("username", "short", "email", "bad", "password", "123"),
+        null
+      ).statusCode()
+    );
+    assertEquals(404, request("GET", "/api/users", null, token).statusCode());
+    assertFalse(
+      request("GET", "/api/users/me", null, token).body().contains("password")
+    );
+  }
+
+  @Test
+  void missingInvalidAndExpiredTokensReturn401WithoutNativeBrowserPrompt()
+    throws Exception {
+    for (String credential : Arrays.asList(
+      null,
+      "invalid.jwt.token",
+      expiredToken()
+    )) {
+      var r = request("GET", "/api/accounts", null, credential);
+      assertEquals(401, r.statusCode(), r.body());
+      assertTrue(r.headers().firstValue("WWW-Authenticate").isEmpty());
+      assertTrue(
+        r
+          .headers()
+          .firstValue("Content-Type")
+          .orElse("")
+          .contains("application/json")
+      );
     }
+  }
 
-    @Test
-    void swaggerUiIsAvailableWithoutAuthentication() throws Exception {
-        HttpResponse<String> response = get("/swagger-ui/index.html");
+  @Test
+  void validatesAmountsAndRollsBackFailedOperations() throws Exception {
+    long id = account("1000.00");
+    assertEquals(
+      201,
+      transaction(id, "500.00", "INCOME", categoryId).statusCode()
+    );
+    assertEquals(
+      201,
+      transaction(id, "200.00", "EXPENSE", categoryId).statusCode()
+    );
+    balance(id, "1300.00");
+    for (String amount : List.of("-1", "0", "1.001"))
+      assertEquals(
+        400,
+        transaction(id, amount, "EXPENSE", categoryId).statusCode()
+      );
+    assertEquals(
+      400,
+      transaction(id, "10", "TRANSFER_IN", categoryId).statusCode()
+    );
+    assertEquals(
+      400,
+      request("POST", "/api/transactions", Map.of(), token).statusCode()
+    );
+    var malformed = raw("POST", "/api/transactions", "{broken", token);
+    assertEquals(400, malformed.statusCode());
+    balance(id, "1300.00");
+  }
 
-        assertEquals(200, response.statusCode(), response.body());
-        assertTrue(response.body().contains("Swagger UI"), response.body());
+  @Test
+  void transfersPersistBothSidesAndConserveTotalMoney() throws Exception {
+    long source = account("100.00"),
+      target = account("50.00");
+    assertEquals(400, transfer(source, target, "1000").statusCode());
+    assertEquals(400, transfer(source, source, "10").statusCode());
+    balance(source, "100.00");
+    balance(target, "50.00");
+    var r = transfer(source, target, "20");
+    assertEquals(201, r.statusCode(), r.body());
+    long transferId = tree(r).get("id").asLong();
+    balance(source, "80.00");
+    balance(target, "70.00");
+    assertEquals(
+      2,
+      jdbc.queryForObject(
+        "SELECT count(*) FROM transactions WHERE transfer_id=?",
+        Integer.class,
+        transferId
+      )
+    );
+    assertEquals(
+      2,
+      jdbc.queryForObject(
+        "SELECT count(DISTINCT type) FROM transactions WHERE transfer_id=?",
+        Integer.class,
+        transferId
+      )
+    );
+    assertEquals(1, tree(request("GET", "/api/transfers", null, token)).size());
+  }
+
+  @Test
+  void accountArchiveAndCategoryRenamePreserveHistory() throws Exception {
+    long id = account("0");
+    transaction(id, "10", "INCOME", categoryId);
+    assertEquals(
+      409,
+      request("DELETE", "/api/accounts/" + id, null, token).statusCode()
+    );
+    transaction(id, "10", "EXPENSE", categoryId);
+    String name = "Renamed-" + UUID.randomUUID();
+    assertEquals(
+      200,
+      request(
+        "PUT",
+        "/api/categories/" + categoryId,
+        Map.of("name", name),
+        token
+      ).statusCode()
+    );
+    assertTrue(
+      request("GET", "/api/transactions", null, token).body().contains(name)
+    );
+    assertEquals(
+      204,
+      request(
+        "DELETE",
+        "/api/categories/" + categoryId,
+        null,
+        token
+      ).statusCode()
+    );
+    assertEquals(400, transaction(id, "1", "EXPENSE", categoryId).statusCode());
+    assertEquals(
+      204,
+      request("DELETE", "/api/accounts/" + id, null, token).statusCode()
+    );
+    assertEquals(0, tree(request("GET", "/api/accounts", null, token)).size());
+    assertEquals(
+      1,
+      tree(
+        request("GET", "/api/accounts?includeArchived=true", null, token)
+      ).size()
+    );
+    assertEquals(
+      2,
+      tree(request("GET", "/api/transactions", null, token)).size()
+    );
+    assertEquals(
+      200,
+      request(
+        "POST",
+        "/api/accounts/" + id + "/restore",
+        Map.of(),
+        token
+      ).statusCode()
+    );
+  }
+
+  @Test
+  void budgetsUseActualExpensesAndGoalsTrackContributions() throws Exception {
+    long id = account("500");
+    transaction(id, "75", "EXPENSE", categoryId);
+    String month = YearMonth.now().toString();
+    var body = Map.of(
+      "categoryId",
+      categoryId,
+      "monthlyLimit",
+      100,
+      "month",
+      month
+    );
+    var budget = request("POST", "/api/budgets", body, token);
+    assertEquals(201, budget.statusCode(), budget.body());
+    assertEquals(
+      409,
+      request("POST", "/api/budgets", body, token).statusCode()
+    );
+    var b = tree(
+      request("GET", "/api/budgets?month=" + month, null, token)
+    ).get(0);
+    assertEquals(75, b.get("spent").asInt());
+    assertEquals(25, b.get("remaining").asInt());
+    var g = request(
+      "POST",
+      "/api/goals",
+      Map.of("name", "Trip", "targetAmount", 1000, "currentAmount", 20),
+      token
+    );
+    assertEquals(201, g.statusCode(), g.body());
+    long goal = tree(g).get("id").asLong();
+    var contribution = request(
+      "POST",
+      "/api/goals/" + goal + "/contributions",
+      Map.of("amount", 30),
+      token
+    );
+    assertEquals(50, tree(contribution).get("currentAmount").asInt());
+    balance(id, "425.00");
+    assertEquals(
+      204,
+      request("DELETE", "/api/goals/" + goal, null, token).statusCode()
+    );
+    assertEquals(
+      204,
+      request(
+        "DELETE",
+        "/api/budgets/" + tree(budget).get("id").asLong(),
+        null,
+        token
+      ).statusCode()
+    );
+  }
+
+  @Test
+  void recurringPaymentPostsDueOccurrenceOnlyOnce() throws Exception {
+    long id = account("100");
+    var r = request(
+      "POST",
+      "/api/recurring-payments",
+      Map.of(
+        "title",
+        "Subscription",
+        "amount",
+        10,
+        "frequency",
+        "MONTHLY",
+        "nextDueDate",
+        LocalDate.now().toString(),
+        "accountId",
+        id,
+        "categoryId",
+        categoryId,
+        "type",
+        "EXPENSE",
+        "active",
+        true
+      ),
+      token
+    );
+    assertEquals(201, r.statusCode(), r.body());
+    long payment = tree(r).get("id").asLong();
+    var first = request(
+      "POST",
+      "/api/recurring-payments/" + payment + "/execute",
+      Map.of(),
+      token
+    );
+    assertEquals(200, first.statusCode(), first.body());
+    assertEquals(1, tree(first).get("posted").asInt());
+    assertEquals(
+      0,
+      tree(
+        request(
+          "POST",
+          "/api/recurring-payments/" + payment + "/execute",
+          Map.of(),
+          token
+        )
+      )
+        .get("posted")
+        .asInt()
+    );
+    balance(id, "90.00");
+    assertEquals(
+      1,
+      jdbc.queryForObject(
+        "SELECT count(*) FROM transactions WHERE recurring_payment_id=?",
+        Integer.class,
+        payment
+      )
+    );
+  }
+
+  @Test
+  void usersCannotReadOrChangeEachOthersResources() throws Exception {
+    long id = account("100");
+    var ownGoal = request(
+      "POST",
+      "/api/goals",
+      Map.of("name", "Private", "targetAmount", 100, "currentAmount", 0),
+      token
+    );
+    long goal = tree(ownGoal).get("id").asLong();
+    String ownToken = token;
+    var other = registerOther();
+    token = other;
+    assertEquals(0, tree(request("GET", "/api/accounts", null, token)).size());
+    assertEquals(
+      0,
+      tree(request("GET", "/api/transactions", null, token)).size()
+    );
+    assertEquals(0, tree(request("GET", "/api/goals", null, token)).size());
+    assertEquals(
+      404,
+      request(
+        "PUT",
+        "/api/accounts/" + id,
+        Map.of("name", "Hijack", "accountType", "PLN"),
+        token
+      ).statusCode()
+    );
+    assertEquals(
+      404,
+      request("DELETE", "/api/accounts/" + id, null, token).statusCode()
+    );
+    assertEquals(
+      404,
+      request(
+        "DELETE",
+        "/api/categories/" + categoryId,
+        null,
+        token
+      ).statusCode()
+    );
+    assertEquals(
+      404,
+      request(
+        "POST",
+        "/api/goals/" + goal + "/contributions",
+        Map.of("amount", 1),
+        token
+      ).statusCode()
+    );
+    long ownOther = account("50");
+    assertEquals(
+      404,
+      transaction(ownOther, "10", "EXPENSE", categoryId).statusCode()
+    );
+    assertEquals(404, transfer(id, ownOther, "10").statusCode());
+    token = ownToken;
+    balance(id, "100.00");
+  }
+
+  @Test
+  void concurrentExpensesDoNotLoseBalanceUpdates() throws Exception {
+    long id = account("1000");
+    try (var pool = Executors.newFixedThreadPool(6)) {
+      List<Future<Integer>> results = new ArrayList<>();
+      for (int i = 0; i < 12; i++) results.add(
+        pool.submit(() ->
+          transaction(id, "1", "EXPENSE", categoryId).statusCode()
+        )
+      );
+      for (var result : results)
+        assertEquals(201, result.get(25, TimeUnit.SECONDS));
     }
+    balance(id, "988.00");
+  }
 
-    @Test
-    void accountsRequireAuthentication() throws Exception {
-        var response = get("/api/accounts");
-        assertEquals(401, response.statusCode());
-        assertTrue(response.headers().firstValue("WWW-Authenticate").isEmpty());
-        assertTrue(response.headers().firstValue("Content-Type").orElse("").contains("application/json"));
+  @Test
+  void forecastsAreProtectedAndValidateMonth() throws Exception {
+    assertEquals(
+      401,
+      request("GET", "/api/forecasts", null, null).statusCode()
+    );
+    assertEquals(
+      400,
+      request("GET", "/api/forecasts?month=bad", null, token).statusCode()
+    );
+    var r = request("GET", "/api/forecasts?month=2020-01", null, token);
+    assertEquals(200, r.statusCode(), r.body());
+    assertTrue(tree(r).get("predictedExpenses").isNull());
+  }
+
+  private String registerOther() throws Exception {
+    String name = "other-" + UUID.randomUUID().toString().substring(0, 10);
+    return tree(
+      request(
+        "POST",
+        "/api/auth/register",
+        Map.of(
+          "username",
+          name,
+          "email",
+          name + "@example.com",
+          "password",
+          password
+        ),
+        null
+      )
+    )
+      .get("accessToken")
+      .asText();
+  }
+
+  private long account(String balance) throws Exception {
+    var r = request(
+      "POST",
+      "/api/accounts",
+      Map.of(
+        "name",
+        "Account-" + UUID.randomUUID(),
+        "accountType",
+        "PLN",
+        "balance",
+        new BigDecimal(balance)
+      ),
+      token
+    );
+    assertEquals(201, r.statusCode(), r.body());
+    return tree(r).get("id").asLong();
+  }
+
+  private HttpResponse<String> transaction(
+    long account,
+    String amount,
+    String type,
+    long category
+  ) throws Exception {
+    return request(
+      "POST",
+      "/api/transactions",
+      Map.of(
+        "accountId",
+        account,
+        "amount",
+        new BigDecimal(amount),
+        "type",
+        type,
+        "date",
+        LocalDate.now().toString(),
+        "categoryId",
+        category,
+        "description",
+        "Test operation"
+      ),
+      token
+    );
+  }
+
+  private HttpResponse<String> transfer(long source, long target, String amount)
+    throws Exception {
+    return request(
+      "POST",
+      "/api/transfers",
+      Map.of(
+        "sourceAccountId",
+        source,
+        "targetAccountId",
+        target,
+        "amount",
+        new BigDecimal(amount),
+        "date",
+        LocalDate.now().toString(),
+        "description",
+        "Savings transfer"
+      ),
+      token
+    );
+  }
+
+  private void balance(long id, String expected) throws Exception {
+    for (JsonNode row : tree(request("GET", "/api/accounts", null, token)))
+      if (row.get("id").asLong() == id) {
+        assertEquals(
+          0,
+          new BigDecimal(expected).compareTo(
+            new BigDecimal(row.get("balance").asText())
+          )
+        );
+        return;
+      }
+    fail("Missing account " + id);
+  }
+
+  private String expiredToken() {
+    var claims = JwtClaimsSet.builder()
+      .issuer("dukat")
+      .subject(username)
+      .issuedAt(Instant.now().minusSeconds(7200))
+      .expiresAt(Instant.now().minusSeconds(3600))
+      .build();
+    return encoder
+      .encode(
+        JwtEncoderParameters.from(
+          JwsHeader.with(MacAlgorithm.HS256).build(),
+          claims
+        )
+      )
+      .getTokenValue();
+  }
+
+  private JsonNode tree(HttpResponse<String> r) {
+    return json.readTree(r.body());
+  }
+
+  private HttpResponse<String> request(
+    String method,
+    String path,
+    Object body,
+    String bearer
+  ) throws Exception {
+    return raw(
+      method,
+      path,
+      body == null ? null : json.writeValueAsString(body),
+      bearer
+    );
+  }
+
+  private HttpResponse<String> raw(
+    String method,
+    String path,
+    String body,
+    String bearer
+  ) throws Exception {
+    var builder = HttpRequest.newBuilder(
+      URI.create("http://127.0.0.1:" + port + path)
+    )
+      .timeout(Duration.ofSeconds(25))
+      .header("Content-Type", "application/json");
+    if (bearer != null) builder.header("Authorization", "Bearer " + bearer);
+    try (var client = HttpClient.newHttpClient()) {
+      return client.send(
+        builder
+          .method(
+            method,
+            body == null
+              ? HttpRequest.BodyPublishers.noBody()
+              : HttpRequest.BodyPublishers.ofString(body)
+          )
+          .build(),
+        HttpResponse.BodyHandlers.ofString()
+      );
     }
-
-    @Test
-    void invalidBasicCredentialsDoNotTriggerNativeBrowserLogin() throws Exception {
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/accounts"))
-                .header("Authorization", "Basic " + Base64.getEncoder().encodeToString("integration-test:wrong".getBytes(StandardCharsets.UTF_8)))
-                .GET().build();
-        try (var client = HttpClient.newHttpClient()) {
-            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            assertEquals(401, response.statusCode());
-            assertTrue(response.headers().firstValue("WWW-Authenticate").isEmpty());
-        }
-    }
-
-    @Test
-    void forecastsAreProtectedAndValidateTheMonth() throws Exception {
-        assertEquals(401, get("/api/forecasts").statusCode());
-        assertEquals(400, authenticatedRequest("GET", "/api/forecasts?month=bad", null).statusCode());
-        var response = authenticatedRequest("GET", "/api/forecasts?month=2020-01", null);
-        assertEquals(200, response.statusCode(), response.body());
-        var forecast = json.readTree(response.body());
-        assertEquals("INSUFFICIENT_DATA", forecast.get("status").asText());
-        assertTrue(forecast.get("predictedExpenses").isNull());
-    }
-
-    @Test
-    void accountCreationValidatesItsInputAndRejectsDuplicateNames() throws Exception {
-        HttpResponse<String> invalid = authenticatedRequest("POST", "/api/accounts",
-                "{\"name\":\" \",\"accountType\":\"PLN\",\"balance\":-1}");
-        assertEquals(400, invalid.statusCode(), invalid.body());
-        assertTrue(json.readTree(invalid.body()).has("name"), invalid.body());
-        assertTrue(json.readTree(invalid.body()).has("balance"), invalid.body());
-        String body = "{\"name\":\"Unique-%s\",\"accountType\":\"PLN\",\"balance\":0}".formatted(UUID.randomUUID());
-        assertEquals(201, authenticatedRequest("POST", "/api/accounts", body).statusCode());
-        assertEquals(409, authenticatedRequest("POST", "/api/accounts", body).statusCode());
-    }
-
-    @Test
-    void incomeAndExpenseUpdatePersistedBalanceAndRejectInvalidRequests() throws Exception {
-        long accountId = createAccount("1000.00");
-        assertEquals(201, createTransaction(accountId, "500.00", "INCOME").statusCode());
-        assertEquals(201, createTransaction(accountId, "200.00", "EXPENSE").statusCode());
-        assertBalance(accountId, "1300.00");
-
-        assertEquals(400, createTransaction(accountId, "-10.00", "EXPENSE").statusCode());
-        assertEquals(400, createTransaction(accountId, "10.00", "UNKNOWN").statusCode());
-        assertBalance(accountId, "1300.00");
-
-        HttpResponse<String> missingFields = authenticatedRequest("POST", "/api/transactions", "{}");
-        assertEquals(400, missingFields.statusCode(), missingFields.body());
-        assertTrue(json.readTree(missingFields.body()).has("amount"), missingFields.body());
-        assertBalance(accountId, "1300.00");
-
-        HttpResponse<String> history = authenticatedRequest("GET", "/api/transactions", null);
-        assertEquals(200, history.statusCode(), history.body());
-        assertTrue(history.body().contains("INCOME"), history.body());
-        assertTrue(history.body().contains("EXPENSE"), history.body());
-    }
-
-    @Test
-    void invalidJsonReturnsBadRequest() throws Exception {
-        assertEquals(400, authenticatedRequest("POST", "/api/transactions", "{broken").statusCode());
-    }
-
-    @Test
-    void transferRejectsNegativeAmountAndInsufficientFundsWithoutChangingBalances() throws Exception {
-        long sourceId = createAccount("100.00");
-        long targetId = createAccount("50.00");
-        String transfer = "{\"sourceAccountId\":%d,\"targetAccountId\":%d,\"amount\":%s}";
-
-        assertEquals(400, authenticatedRequest("POST", "/api/transfers",
-                transfer.formatted(sourceId, targetId, "-10.00")).statusCode());
-        assertEquals(400, authenticatedRequest("POST", "/api/transfers",
-                transfer.formatted(sourceId, targetId, "1000.00")).statusCode());
-        assertBalance(sourceId, "100.00");
-        assertBalance(targetId, "50.00");
-
-        assertEquals(200, authenticatedRequest("POST", "/api/transfers",
-                transfer.formatted(sourceId, targetId, "20.00")).statusCode());
-        assertBalance(sourceId, "80.00");
-        assertBalance(targetId, "70.00");
-    }
-
-    private long createAccount(String initialBalance) throws Exception {
-        String body = "{\"name\":\"Test-%s\",\"accountType\":\"PLN\",\"balance\":%s}"
-                .formatted(UUID.randomUUID(), initialBalance);
-        HttpResponse<String> response = authenticatedRequest("POST", "/api/accounts", body);
-        assertEquals(201, response.statusCode(), response.body());
-        return json.readTree(response.body()).get("id").asLong();
-    }
-
-    private HttpResponse<String> createTransaction(long accountId, String amount, String type) throws Exception {
-        String body = """
-                {"accountId":%d,"amount":%s,"type":"%s","date":"2026-10-20",
-                 "category":"Test","description":"Operacja testowa"}
-                """.formatted(accountId, amount, type);
-        return authenticatedRequest("POST", "/api/transactions", body);
-    }
-
-    private void assertBalance(long accountId, String expected) throws Exception {
-        HttpResponse<String> response = authenticatedRequest("GET", "/api/accounts", null);
-        assertEquals(200, response.statusCode(), response.body());
-        for (JsonNode account : json.readTree(response.body())) {
-            if (account.get("id").asLong() == accountId) {
-                assertEquals(0, new BigDecimal(expected).compareTo(new BigDecimal(account.get("balance").asText())));
-                return;
-            }
-        }
-        throw new AssertionError("Brak konta testowego " + accountId);
-    }
-
-    private HttpResponse<String> authenticatedRequest(String method, String path, String body) throws Exception {
-        String credentials = Base64.getEncoder().encodeToString(
-                "integration-test:integration-test-password".getBytes(StandardCharsets.UTF_8));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("http://127.0.0.1:" + port + path))
-                .timeout(Duration.ofSeconds(10))
-                .header("Authorization", "Basic " + credentials)
-                .header("Content-Type", "application/json")
-                .method(method, body == null ? HttpRequest.BodyPublishers.noBody()
-                        : HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            return client.send(request, HttpResponse.BodyHandlers.ofString());
-        }
-    }
-
-    private HttpResponse<String> get(String path) throws Exception {
-        try (HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
-                .build()) {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("http://127.0.0.1:" + port + path))
-                    .timeout(Duration.ofSeconds(10))
-                    .GET()
-                    .build();
-            return client.send(request, HttpResponse.BodyHandlers.ofString());
-        }
-    }
-
+  }
 }

@@ -1,88 +1,85 @@
 package com.example.demoapp;
 
-import com.example.demoapp.dto.transaction.CreateTransactionRequest;
-import com.example.demoapp.model.Account;
-import com.example.demoapp.repository.AccountRepository;
-import com.example.demoapp.repository.TransactionRepository;
-import com.example.demoapp.service.TransactionService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
+import com.example.demoapp.model.*;
+import com.example.demoapp.repository.TransactionRepository;
+import com.example.demoapp.service.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.*;
 
 class TransactionServiceTest {
 
-    @Mock
-    private TransactionRepository transactionRepository;
+  private AccountService accounts;
+  private CategoryService categories;
+  private TransactionRepository transactions;
+  private FinancialLedger ledger;
+  private Account account;
+  private Category category;
 
-    @Mock
-    private AccountRepository accountRepository;
+  @BeforeEach
+  void setup() {
+    accounts = mock(AccountService.class);
+    categories = mock(CategoryService.class);
+    transactions = mock(TransactionRepository.class);
+    ledger = new FinancialLedger(accounts, categories, transactions);
+    account = new Account("Główne", "PLN", new BigDecimal("1000.00"));
+    account.setId(1L);
+    category = new Category("Test");
+    category.setId(2L);
+    when(accounts.lock(1L, 7L)).thenReturn(account);
+    when(categories.active(2L, 7L)).thenReturn(category);
+    when(transactions.save(any())).thenAnswer(i -> i.getArgument(0));
+  }
 
-    @InjectMocks
-    private TransactionService transactionService;
+  @Test
+  void incomeUpdatesTheLockedOwnedAccount() {
+    var row = post("500.00", TransactionType.INCOME);
+    assertEquals(new BigDecimal("1500.00"), account.getBalance());
+    assertSame(category, row.getCategoryEntity());
+    verify(accounts).lock(1L, 7L);
+  }
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
+  @Test
+  void expenseUpdatesTheLockedOwnedAccount() {
+    post("200.00", TransactionType.EXPENSE);
+    assertEquals(new BigDecimal("800.00"), account.getBalance());
+  }
 
-    @Test
-    void shouldIncreaseBalanceOnIncome() {
-        Account account = new Account("Główne", "PLN", new BigDecimal("1000.00"));
-        account.setId(1L);
-        when(accountRepository.findById(1L)).thenReturn(Optional.of(account));
-        when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+  @Test
+  void precisionAndPositiveAmountAreCheckedBeforeChangingMoney() {
+    assertThrows(IllegalArgumentException.class, () ->
+      post("0.001", TransactionType.EXPENSE)
+    );
+    assertThrows(IllegalArgumentException.class, () ->
+      post("-10", TransactionType.EXPENSE)
+    );
+    assertEquals(new BigDecimal("1000.00"), account.getBalance());
+    verifyNoInteractions(transactions);
+  }
 
-        CreateTransactionRequest request = new CreateTransactionRequest();
-        request.setAccountId(1L);
-        request.setAmount(new BigDecimal("500.00"));
-        request.setType("INCOME");
-        request.setDate(LocalDate.now());
+  @Test
+  void cannotForgeTransferThroughManualLedger() {
+    assertThrows(IllegalArgumentException.class, () ->
+      post("20", TransactionType.TRANSFER_IN)
+    );
+    verifyNoInteractions(transactions);
+  }
 
-        transactionService.createTransaction(request);
-
-        assertEquals(new BigDecimal("1500.00"), account.getBalance());
-        verify(accountRepository, times(1)).save(account);
-    }
-
-    @Test
-    void shouldDecreaseBalanceOnExpense() {
-        Account account = new Account("Główne", "PLN", new BigDecimal("1000.00"));
-        account.setId(1L);
-        when(accountRepository.findById(1L)).thenReturn(Optional.of(account));
-        when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-        CreateTransactionRequest request = new CreateTransactionRequest();
-        request.setAccountId(1L);
-        request.setAmount(new BigDecimal("200.00"));
-        request.setType("EXPENSE");
-        request.setDate(LocalDate.now());
-
-        transactionService.createTransaction(request);
-
-        assertEquals(new BigDecimal("800.00"), account.getBalance());
-        verify(accountRepository, times(1)).save(account);
-    }
-
-    @Test
-    void shouldThrowExceptionWhenAccountNotFound() {
-        when(accountRepository.findById(99L)).thenReturn(Optional.empty());
-
-        CreateTransactionRequest request = new CreateTransactionRequest();
-        request.setAccountId(99L);
-        request.setAmount(new BigDecimal("100.00"));
-        request.setType("EXPENSE");
-        request.setDate(LocalDate.now());
-
-        assertThrows(IllegalArgumentException.class, () -> transactionService.createTransaction(request));
-    }
+  private Transaction post(String amount, TransactionType type) {
+    return ledger.post(
+      7L,
+      1L,
+      2L,
+      new BigDecimal(amount),
+      type,
+      LocalDate.now(),
+      "Test",
+      null,
+      null
+    );
+  }
 }

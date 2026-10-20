@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { SessionService } from './session';
 import { AccountService } from './account';
 
 describe('AccountService', () => {
@@ -17,14 +18,14 @@ describe('AccountService', () => {
 
   afterEach(() => http.verify());
 
-  it('sends Basic Auth to the accounts API and returns its data', () => {
+  it('sends a Bearer token to the accounts API and returns its data', () => {
     const accounts = [{ id: 1, name: 'Konto testowe', accountType: 'PLN', balance: 950 }];
-    service.getAccounts('user', 'password').subscribe((result) => expect(result).toEqual(accounts));
+    TestBed.inject(SessionService).setToken('test-jwt');
+    service.refreshAccounts().subscribe((result) => expect(result).toEqual(accounts));
 
     const request = http.expectOne('/api/accounts');
     expect(request.request.method).toBe('GET');
-    expect(request.request.headers.get('Authorization')).toBe('Basic dXNlcjpwYXNzd29yZA==');
-    expect(request.request.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
+    expect(request.request.headers.get('Authorization')).toBe('Bearer test-jwt');
     request.flush(accounts);
   });
 });
