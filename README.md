@@ -1,95 +1,120 @@
 # Dukat
 
-Aplikacja do ewidencji finansów osobistych: Angular 22, Java 21, Spring Boot 4.1, PostgreSQL i Docker. Frontend komunikuje się z backendem przez REST API.
+Aplikacja portfolio do ewidencji finansów osobistych: Angular 22, Java 21 / Spring Boot 4, PostgreSQL 15. Szafirowy interfejs, konta, historia, budżety, cele, płatności cykliczne, przelewy oraz statystyczna prognoza wydatków. Kwoty w PLN. Brak integracji bankowej.
 
-## Dostępne funkcje
+## Uruchomienie na Windows
 
-- Logowanie do demonstracyjnego API przez HTTP Basic.
-- Pulpit z saldem kont oraz przychodami i wydatkami wybranego miesiąca.
-- Wykres przepływów z sześciu miesięcy i zestawienie kategorii wydatków.
-- Dodawanie kont oraz przychodów i wydatków.
-- Historia z wyszukiwaniem, filtrem typu, konta i miesiąca.
-- Walidacja formularzy i odpowiedzi błędów API.
-- Szafirowy motyw ze szklanymi panelami oraz mobilnym układem.
-- Prognoza wydatków ze średnią ruchomą, regresją liniową i naiwnym modelem; porównanie MAE w walidacji czasowej.
-
-Wykres i podsumowania korzystają z odpowiedzi backendu. Pusta historia jest pokazywana jako brak danych. Saldo początkowe konta nie jest przychodem i nie pojawia się jako operacja w historii.
-
-## Uruchomienie lokalne — trzy części
-
-Z katalogu głównego projektu, w PowerShell:
+Włącz Docker Desktop, otwórz terminal w katalogu projektu i wykonaj:
 
 ```powershell
-docker compose up -d
-.\mvnw.cmd spring-boot:run
+.\scripts\Initialize-Dukat.ps1
+.\scripts\Start-Dukat.ps1
 ```
 
-Można też uruchomić `DemoappApplication` w IntelliJ. Backend działa na `http://localhost:8082`, baza na porcie `5433`, a [Swagger UI](http://localhost:8082/swagger-ui/index.html) opisuje API.
+Inicjalizacja tworzy lokalny, ignorowany przez Git plik `.env` i losowe sekrety. Istniejącego pliku nie nadpisuje. Jeśli korzystasz ze starego wolumenu, dane DB_USER/DB_PASSWORD muszą odpowiadać istniejącej bazie. Zmiana POSTGRES_PASSWORD w Compose sama nie zmienia hasła już utworzonego użytkownika PostgreSQL.
+
+Skrypt startowy sprawdza zajęte porty i wykonuje `docker compose up -d --build --wait`. Po przygotowaniu `.env` można też uruchomić cały stack zwykłym `docker compose up --build`.
+
+- Aplikacja: [localhost:4200](http://localhost:4200).
+- Swagger: [localhost:8082/swagger-ui/index.html](http://localhost:8082/swagger-ui/index.html).
+- Health: [localhost:8082/actuator/health](http://localhost:8082/actuator/health).
+- pgAdmin: host `localhost`, port `5433`, baza `dukat_db`, użytkownik/hasło z lokalnego `.env`. pgAdmin jest osobnym klientem, nie częścią aplikacji.
+
+Zarejestruj własny profil w UI albo użyj lokalnego profilu z DUKAT_BOOTSTRAP_USERNAME i DUKAT_BOOTSTRAP_PASSWORD. Po migracji istniejące dane należą do tego profilu. Hasło nie jest już generowane przy każdym starcie. Bootstrap ustawia hasło tylko podczas pierwszego utworzenia profilu; zmiana zmiennej później nie nadpisuje hasła w bazie.
+
+Zatrzymanie bez usuwania danych:
+
+```powershell
+.\scripts\Stop-Dukat.ps1
+```
+
+## Port 8082 jest zajęty
+
+Oznacza to, że drugi backend próbuje użyć tego samego portu. Gdy stack działa w Dockerze, nie uruchamiaj jednocześnie backendu w IntelliJ ani `npm start` na 4200. Skrypt wypisuje nazwę procesu i PID, lecz go nie zabija. Zatrzymaj poprzedni start jego przyciskiem Stop / Ctrl+C.
+
+```powershell
+docker compose ps
+docker compose logs --tail=80 backend
+Get-NetTCPConnection -State Listen -LocalPort 8082
+```
+
+## Tryb pracy nad kodem
+
+Docker służy również do uruchomienia samej bazy. Zatrzymaj kontenery backendu/frontendu, a następnie uruchom backend i Angular osobno:
+
+```powershell
+docker compose stop backend frontend
+docker compose up -d db
+.\mvnw.cmd spring-boot:run
+```
 
 W drugim terminalu:
 
 ```powershell
-cd .\dukat-ui
-npm.cmd ci
-npm.cmd start
+Set-Location dukat-ui
+npm ci
+npm start
 ```
 
-Otwórz `http://localhost:4200`. Przy kolejnych uruchomieniach wystarczy `npm.cmd start`, jeśli zależności są już zainstalowane i lockfile się nie zmienił.
+W IntelliJ ustaw JDK 21 i katalog roboczy na główny folder projektu, aby Spring odnalazł `.env`. Proxy Angulara przekazuje `/api` na 8082. W Dockerze robi to Nginx, a backend łączy się z bazą przez `db:5432`.
 
-Login aplikacji: `user`. Hasło odczytaj z konsoli **bieżącego uruchomienia backendu**, przy `Using generated security password`. Dane `dukatuser` w Compose służą połączeniu z bazą. Sesja frontendu trzyma nagłówek logowania tylko w pamięci; odświeżenie strony wymaga ponownego logowania.
+## Jak działa aplikacja
 
-Proxy z `dukat-ui/proxy.conf.json` przekazuje `/api/**` z Angulara do backendu. Po zmianie proxy uruchom ponownie `npm.cmd start`. Proxy serwera developerskiego nie jest konfiguracją wdrożenia produkcyjnego.
+```mermaid
+flowchart LR
+  A[Angular: formularz i sygnały] --> B[Proxy / Nginx]
+  B --> C[Spring Security: JWT]
+  C --> D[Kontroler + DTO + Valid]
+  D --> E[Serwis: reguły i transakcja]
+  E --> F[Repozytorium Spring Data / Hibernate]
+  F --> G[(PostgreSQL + wolumen)]
+  H[Flyway: wersjonowane SQL] --> G
+  I[Harmonogram co minutę] --> J[RecurringProcessor]
+  J --> E
+```
 
-Jeśli pojawia się błąd parsowania przy HTTP 200, sprawdź odpowiedź w Network: HTML zamiast JSON oznacza problem z proxy lub adresem. `npm start` jawnie wczytuje proxy. API przy błędzie logowania zwraca 401 z JSON bez nagłówka wywołującego natywne okno logowania przeglądarki; błąd wyświetla formularz Dukata.
+JWT jest podpisany HS256, ważny godzinę i przechowywany wyłącznie w pamięci karty. Odświeżenie strony wymaga logowania. Hasła użytkowników mają hash BCrypt. Serwer pobiera właściciela z sesji JWT i filtruje zasoby po owner_id; klient nie wybiera właściciela w JSON.
 
-## Prognoza
+- Konta: utworzenie, lista, edycja nazwy/rodzaju, zamknięcie przy saldzie 0 i przywrócenie. Historia pozostaje.
+- Transakcje: dodatnia kwota z maks. 2 miejscami, data, opis, kategoria FK, INCOME/EXPENSE. Saldo i historia zapisują się razem pod blokadą konta. Wydatki mogą powodować ujemne saldo.
+- Kategorie: tworzenie, zmiana nazwy, wyłączenie i przywrócenie. Nazwa w historii pochodzi z relacji; historyczny tekst pozostaje w bazie jako zapis starej wersji.
+- Budżety: limit kategorii na miesiąc oraz rzeczywiste wydatki i pozostała kwota. Jeden limit na kategorię/miesiąc/profil.
+- Cele: tworzenie, edycja, usuwanie i ręczny przyrost postępu. Nie przenoszą pieniędzy.
+- Płatności cykliczne: zapis należnych terminów co minutę, ręczne wykonanie, pauza, edycja, ostatni błąd. Jeden termin może zostać zaksięgowany najwyżej raz. Maks. 12 terminów na jedno wywołanie; kolejne przejście uzupełnia dalsze zaległości. Dzień miesiąca jest zachowany, np. 31 stycznia → koniec lutego → 31 marca.
+- Przelewy: pomiędzy dwoma własnymi aktywnymi kontami, przy wystarczającym saldzie; jeden rekord przelewu i dwie pozycje historii. TRANSFER_IN/OUT nie zwiększają przychodów/wydatków ani danych modelu.
+- Dashboard: miesięczne sumy, sześć miesięcy wykresu, kategorie, historia i prognoza.
 
-`GET /api/forecasts?month=2026-10` szacuje październik wyłącznie na podstawie wcześniejszych miesięcy. Potrzebne są co najmniej 3 kolejne miesiące z zapisami; od 6 porównujemy modele w walidacji kroczącej. Brak historii daje `null`, zamiast zmyślonej kwoty. Zasady agregacji, MAE i ograniczenia opisuje [model card](MODEL_CARD_DUKAT.md). Aplikacja nie dopisuje automatycznie syntetycznych transakcji do Twojego PostgreSQL.
+## Baza i migracja starej wersji
 
-## Mapa kodu — co za co odpowiada
+Flyway jest jedynym narzędziem zmieniającym schemat. Hibernate ma `ddl-auto=validate`. Migracje V1–V4 tworzą schemat lub obejmują istniejącą bazę historią, dodają właścicieli i FK kategorii, indeksy, przelewy, harmonogram oraz reguły nazw użytkownika. Inicjalizator przypisuje zachowane dane starej wersji do profilu lokalnego; stare cykle bez konta pozostają wstrzymane do uzupełnienia.
 
-| Część | Odpowiedzialność |
-| --- | --- |
-| `dukat-ui/src/app/app.ts` | Stan widoku, nawigacja, filtry i obsługa formularzy; `signal` i `computed` |
-| `dukat-ui/src/app/app.html` | Widoki i powiązania danych; `@if`, `@for`, `ngModel` i zdarzenia |
-| `dukat-ui/src/app/services/session.ts` | Nagłówek Basic Auth w pamięci sesji |
-| `dukat-ui/src/app/services/account.ts` | Żądania API dotyczące kont |
-| `dukat-ui/src/app/services/transaction.ts` | Kontrakt JSON i żądania transakcji |
-| `controller` | Odbiór HTTP, wywołanie serwisu, status odpowiedzi |
-| `dto` | Dane wejściowe/wyjściowe oraz ograniczenia walidacji |
-| `service` | Reguły biznesowe, przeliczenie salda, granice transakcji bazodanowej |
-| `repository` | Interfejsy dostępu do danych implementowane przez Spring Data JPA |
-| `model` | Encje JPA, relacje i enumy |
-| `exception` | Wspólne odpowiedzi błędów API |
+Wolumen `demoapp_dukat_postgres_data` przeżywa zatrzymanie/restart/reutworzenie kontenerów. Nie używaj `docker compose down -v`, jeśli chcesz zachować dane. Wolumen nie zastępuje kopii zapasowej. Przed migracją lokalnej bazy wykonano pg_dump i próbne odtworzenie na oddzielnej bazie.
 
-Przykład: formularz → `TransactionService` Angulara → `POST /api/transactions` → kontroler Java → serwis Java → repozytoria → baza. Dopiero po zapisie frontend odczytuje aktualne saldo i historię. Kwota po stronie Javy ma typ `BigDecimal`.
+## API, Postman i testy
 
-## Testy
+Zaimportuj `postman/Dukat.postman_collection.json` oraz `postman/Local.postman_environment.json`. W lokalnym środowisku ustaw demoPassword (minimum 10 znaków) i uruchom Runner od początku. Kolekcja tworzy oddzielny profil z fikcyjnymi danymi: 25 żądań / 35 asercji. Możesz ustawić baseUrl na 4200, aby sprawdzić także proxy. Nie eksportuj uzupełnionego hasła ani wygenerowanego tokenu.
+
+Swagger jest publiczny. Chronione operacje wymagają `Authorize` → tokenu z `POST /api/auth/login`. Nie dodawaj słowa Bearer do pola Swaggera; UI doda je samo. Modele wejścia/wyjścia mają opisy Schema; @Schema nie zastępuje walidacji.
 
 ```powershell
-.\mvnw.cmd verify
-cd .\dukat-ui
-npm.cmd test -- --watch=false
-npm.cmd run build
+.\mvnw.cmd test
+npm --prefix dukat-ui test -- --watch=false
+npm --prefix dukat-ui run build
 ```
 
-Testy integracyjne backendu używają osobnej bazy H2 w pamięci. Testy frontendu używają kontrolowanego klienta HTTP, a podgląd w przeglądarce sprawdza także komunikację z działającym backendem.
+Testy backendu wymagają działającego Docker Desktop: Testcontainers uruchamia oddzielny, tymczasowy PostgreSQL na losowym porcie. Nie korzystają z Twojej bazy. Sprawdzają m.in. migracje, JWT, izolację, walidację, transfery, zachowanie historii, harmonogram i równoległe aktualizacje salda.
 
-## Jak zapisać zmiany w Git
+## Materiały do nauki i demonstracji
 
-Z katalogu głównego `demoapp` sprawdź bieżące zmiany:
+- `NOTATKA_DO_NAUKI_DUKAT.txt` — przepływ, języki, typy i wszystkie adnotacje/dekoratory.
+- `INDEKS_PLIKOW_I_ADNOTACJI_DUKAT.txt` — pełny indeks źródeł i lokalizacje; odśwież przez `node scripts/generate-study-index.mjs`.
+- `AUDYT_GOTOWOSCI_DUKAT.md` — stan wymagań i dowody sprawdzenia.
+- `QUIZ_DUKAT.md` i `KLUCZ_QUIZU_DUKAT.md` — 35 pytań, 80 punktów.
+- `MODEL_CARD_DUKAT.md` — modele, walidacja czasowa i ograniczenia.
+- `PLAN_COMMITOW.md` — małe grupy zmian do samodzielnego zaznaczenia.
 
-```powershell
-git status
-git diff --stat
-```
+## Granica portfolio
 
-Wybierz pliki do **małych, tematycznych commitów** według [dokładnej listy zaznaczeń](PLAN_COMMITOW.md). Jeden fragment `app.ts` dotyczący rejestracji motywu należy wybrać osobno. `git add` wybiera zawartość następnego commita, a `git diff --cached` pozwala ją obejrzeć. `git commit` zapisuje lokalny punkt historii; `git push` jest osobnym wysłaniem commitów do zdalnego repozytorium.
+To działające lokalne portfolio z praktykami przydatnymi w enterprise. Przed publicznym wdrożeniem pozostają: HTTPS i docelowa infrastruktura, odzyskiwanie hasła, limity prób logowania, polityka odwoływania/odświeżania tokenów, idempotencja ręcznych POST, monitoring i regularne backupy z próbami odtworzenia. Logout usuwa token z przeglądarki; nie unieważnia jego kopii na serwerze przed upływem ważności. Gospodarstwa/Membership/SettlementService pozostają szkicem poza modułami finansowymi UI. Prognoza wymaga historii i nie potwierdza kompletności ręcznych danych.
 
-Do repozytorium trafiają źródła i testy. `target`, `node_modules`, `dist` i cache Angulara są ignorowane.
-
-## Granice aktualnej wersji
-
-To lokalny projekt demonstracyjny. Dane kont nie są jeszcze rozdzielone według właściciela, logowanie użytkowników z tabeli `users` nie jest połączone ze Spring Security, a istniejący endpoint użytkowników wymaga oddzielnej poprawy obsługi haseł i DTO. JWT, rozliczenia gospodarstwa, integracje zewnętrzne i audyt to nadal obszary rozwoju. Przelewy backendu nie tworzą jeszcze pełnej historii operacji. Równoczesne zmiany salda wymagają dodatkowej strategii blokowania lub wersjonowania.
-
-[Aktualna notatka do nauki](NOTATKA_DO_NAUKI_DUKAT.txt) opisuje języki, warstwy, przepływy, adnotacje i granice projektu. [Pełny indeks źródeł i wystąpień adnotacji](INDEKS_PLIKOW_I_ADNOTACJI_DUKAT.txt) ułatwia znalezienie przykładów w kodzie.
+Źródła implementacyjne: [inicjalizacja bazy w Spring Boot](https://docs.spring.io/spring-boot/how-to/data-initialization.html), [PostgreSQL w Testcontainers](https://java.testcontainers.org/modules/databases/postgres/).

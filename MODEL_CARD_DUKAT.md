@@ -4,7 +4,7 @@ Cel: oszacowanie sumy zapisanych wydatków w wybranym miesiącu z poprzednich mi
 
 ## Dane i granica czasowa
 
-Źródłem jest tabela `transactions`. API `/api/forecasts?month=2026-10` korzysta wyłącznie z dat przed `2026-10-01`, maksymalnie z 12 poprzednich miesięcy. Nie używa częściowych wydatków miesiąca celu do uczenia.
+Źródłem są transakcje kont zalogowanego użytkownika, filtrowane po ownerId. TRANSFER_IN/OUT są wykluczone; miesiąc z samymi przelewami nie udaje kompletnej historii wydatków. API `/api/forecasts?month=2026-10` korzysta wyłącznie z dat przed `2026-10-01`, maksymalnie z 12 poprzednich miesięcy. Nie używa częściowych wydatków miesiąca celu do uczenia.
 
 Bierzemy ciąg miesięcy kończący się bezpośrednio przed miesiącem celu. Miesiąc bez żadnej operacji przerywa ciąg, zamiast otrzymać sztuczne zero. Miesiąc z przychodami bez wydatków ma zero **zapisanych** wydatków. Kompletność ręcznych wpisów pozostaje założeniem, a nie zweryfikowaną cechą danych.
 
@@ -33,7 +33,7 @@ Walidacja krocząca zaczyna się od trzech wcześniejszych miesięcy. Na każdym
 
 - `ForecastController`: parametr miesiąca i kontrakt HTTP.
 - `ForecastService`: agregacja, kontrola ciągłości, modele i walidacja.
-- `TransactionRepository`: zakres dat ograniczony przed miesiącem celu.
+- `TransactionRepository`: właściciel oraz zakres dat ograniczony przed miesiącem celu.
 - `ForecastResponse`: historia, wynik, oceny modeli, liczba miesięcy i założenia.
 - Komponent `forecast-panel`: wykres z oddzieloną prognozą, tabela danych i opis ograniczeń.
 - `ForecastServiceTest`: m.in. za krótka historia, trend liniowy, luki, miesiące z samymi przychodami i przyszły cel.
@@ -43,6 +43,6 @@ Wartości finansowe w bazie są `BigDecimal`; obliczenia statystyczne używają 
 
 ## Ograniczenia i następny eksperyment
 
-Brak sezonowości, planowanych rachunków, cech zewnętrznych, przedziałów predykcji i monitoringu dryfu. Dane nie są jeszcze izolowane po właścicielu — taka sama granica jak w reszcie demonstracyjnego API. Prognoza jest oparta na zapisach, nie na niezależnie potwierdzonej historii bankowej.
+Brak sezonowości, planowanych rachunków, cech zewnętrznych, przedziałów predykcji i monitoringu dryfu. Dane są izolowane po właścicielu, tak jak pozostałe endpointy. Prognoza jest oparta na zapisach, nie na niezależnie potwierdzonej historii bankowej.
 
 Następny eksperyment: większy, opisany zbiór; potwierdzenie kompletności; zamrożony końcowy holdout; walidacja czasowa do wyboru modelu na wcześniejszej części; jednorazowy pomiar na holdoucie; analiza błędów i porównanie z naiwnym modelem na tych samych miesiącach. Dopiero potem rozszerzenie modeli i cech.

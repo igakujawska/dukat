@@ -1,420 +1,369 @@
-DUKAT — NOTATKA DO NAUKI I PRZYGOTOWANIA DEMONSTRACJI
-Stan: 20 października 2026 r. / Java 21, Spring Boot 4.1, Angular 22
+DUKAT — NOTATKA DO NAUKI
+Wersja po wdrożeniu brakujących modułów, 20.10.2026.
 
-1. CO ZBUDOWAŁAM I JAK TO UCZCIWIE PRZEDSTAWIĆ
-============================================
-Dukat ewidencjonuje finanse osobiste. Potrafi pobrać i dodać konta, zapisać
-przychód lub wydatek, przeliczyć saldo, pokazać historię, filtry, wykresy
-oraz miesięczną prognozę wydatków. Frontend ma szafirowy motyw, półprzezroczyste
-panele i układ na telefon. Liczby finansowe pochodzą z API, a nie z dekoracji.
+1. CO POTRAFIĘ POKAZAĆ
+Logowanie i rejestracja JWT, własne dane każdego profilu, konta i ich archiwizacja,
+historia z kategoriami, automatyczne saldo, miesięczne budżety, cele, cykle,
+przelewy, wykresy i statystyczna prognoza. Całość startuje przez Docker Compose.
+Kod jest monolitem z warstwami; nie potrzebuje mikroserwisów, żeby pokazywać
+świadome decyzje architektoniczne.
 
-To demonstracyjny monolit warstwowy z osobnym frontendem SPA.
-Enterprise oznacza tu przemyślany podział odpowiedzialności i świadome decyzje,
-a nie samą liczbę klas. Nie ma jeszcze kompletnej produkcyjnej autoryzacji,
-izolacji danych użytkowników, audytu, migracji i ochrony współbieżnych sald.
-Nie należy przedstawiać projektu jako gotowego systemu bankowego.
+2. JĘZYKI, TECHNOLOGIE I NARZĘDZIA — NIE MYL ICH
+Java: logika backendu, encje, DTO, serwisy, kontrolery, testy.
+TypeScript: kod Angulara; dodaje typy do JavaScriptu, a build tworzy JavaScript.
+JavaScript: język wykonywany w przeglądarce; także skrypt indeksujący źródła.
+HTML: struktura formularzy i widoków. CSS: wygląd, szkło, kolory, responsywność.
+SQL: schemat, relacje i migracje. PostgreSQL to silnik bazy, nie osobny język.
+Spring Boot uruchamia i konfiguruje Javę. Spring MVC obsługuje HTTP.
+Spring Security weryfikuje JWT. Hibernate/JPA mapuje obiekty na tabele.
+Spring Data tworzy repozytoria. Flyway wersjonuje zmiany schematu.
+Angular to framework frontendu, RxJS obsługuje strumienie odpowiedzi HTTP.
+Maven/pom.xml buduje Javę i dobiera zależności; npm/package.json — frontend.
+Docker buduje obrazy i uruchamia procesy w kontenerach; Compose łączy trzy usługi.
+Dockerfile jest przepisem obrazu, obraz jest szablonem, kontener to uruchomiony proces.
+Wolumen przechowuje pliki PostgreSQL poza cyklem życia kontenera.
+Postman wysyła żądania HTTP bez klikania UI. Swagger opisuje API i pozwala je wywołać.
+pgAdmin to klient do oglądania/tworzenia zapytań PostgreSQL; nie zapisuje za serwis.
+Terminal uruchamia polecenia. Git zapisuje historię kodu; GitHub ją hostuje.
 
-Przykładowy opis w portfolio:
-„Aplikacja Angular + Spring Boot + PostgreSQL. REST API z walidacją,
-transakcyjną aktualizacją sald i testami. Prognozowanie wydatków porównuje
-średnią ruchomą, regresję liniową i model naiwny w walidacji czasowej.
-Projekt rozwijałam z pomocą AI; potrafię wyjaśnić przepływ, testy i ograniczenia.”
+3. KLASA, INTERFEJS, RECORD, ENUM
+Klasa ma stan, konstruktor i metody działające w runtime, np. AccountService.
+Encja JPA jest klasą z tożsamością i pustym konstruktorem dla ORM, np. Account.
+Interfejs repozytorium opisuje kontrakt; Spring Data tworzy implementację/proxy.
+Nie trzeba tworzyć AccountRepositoryImpl, bo JpaRepository zapewnia CRUD.
+Interfejs TypeScript Account/Goal opisuje JSON wyłącznie na etapie sprawdzania typów.
+Nie jest tabelą, nie wykonuje żądania i nie waliduje automatycznie danych runtime.
+Record Java jest dobry dla niemutowalnego kontraktu DTO: generuje konstruktor,
+accessory name() itd., equals/hashCode/toString. Nie używamy go tu jako encji JPA.
+CreateTransactionRequest jest zwykłą klasą DTO z getterami/setterami — to też poprawne;
+dla niej używamy getAmount(), a dla recordu request.amount().
+Enum definiuje skończony zbiór wartości: TransactionType i Role.
+Role nie potrzebuje własnej tabeli/repozytorium, bo nie jest edytowalnym słownikiem.
+Category jest encją, bo użytkownik może tworzyć i zmieniać swoje kategorie.
+OwnedResource jest wspólną klasą mapowania id/owner; nie jest osobnym zasobem API.
 
-2. JĘZYKI, FRAMEWORKI, BIBLIOTEKI I NARZĘDZIA
-===========================================
-Java: backend, klasy, interfejsy, enumy, recordy, reguły biznesowe i testy.
-TypeScript: frontend. Rozszerza JavaScript o typy sprawdzane podczas kompilacji.
-JavaScript: kod wykonywany w przeglądarce po zbudowaniu TypeScriptu.
-HTML: struktura widoków, semantyka formularzy i dostępność.
-CSS: kolory, siatki, responsywność, typografia, szkło (backdrop-filter).
-SQL: język bazy. Większość zapytań w tym projekcie generuje Hibernate.
-JSON: format danych HTTP i konfiguracji; nie jest językiem programowania.
-XML: format pom.xml. YAML: format docker-compose.yml.
-PowerShell/terminal: uruchamianie programów, Git, diagnostyka i budowanie.
+4. DLACZEGO KONTO MA MODEL, REPOZYTORIUM, SERWIS I KONTROLER
+Model opisuje stan oraz relacje. Repozytorium pobiera/zapisuje rekordy.
+Serwis realizuje reguły, np. zamknięcie tylko przy saldzie 0 i kontrolę właściciela.
+Kontroler zamienia HTTP/JSON na wywołanie serwisu, stosuje Valid i statusy.
+DTO określa, co klient może przesłać/zobaczyć. Encja zawiera więcej szczegółów bazy.
+Rozdzielenie pozwala testować reguły bez HTML i zmieniać widok bez zmiany bazy.
+Nie każda klasa potrzebuje repozytorium: DTO, enum, konfiguracja, FinancialLedger,
+ForecastService i komponent ikony nie reprezentują oddzielnej tabeli.
 
-Spring Boot uruchamia i automatycznie konfiguruje backend.
-Spring MVC obsługuje kontrolery HTTP i serializację JSON.
-Spring Security chroni API i sprawdza Basic Auth.
-Spring Data JPA tworzy implementacje repozytoriów.
-JPA jest specyfikacją mapowania obiektów; Hibernate jest jej implementacją.
-Jakarta Validation sprawdza ograniczenia danych DTO, np. dodatnią kwotę.
-Angular organizuje komponenty, formularze, DI i klienta HTTP.
-RxJS dostarcza Observable, forkJoin, finalize i anulowanie subskrypcji.
-Tailwind jest zainstalowany; główny motyw wykorzystuje własny CSS.
-JUnit/Mockito sprawdzają Javę, Vitest i narzędzia Angulara sprawdzają frontend.
-H2 jest bazą w pamięci dla testów; uruchomiona aplikacja używa PostgreSQL.
+5. MAPA DOMENY I ODPOWIEDZIALNOŚCI
+User: login, hash BCrypt, e-mail, rola, aktywność. Odpowiedzi UserResponse nie mają hasła.
+Account: rodzaj, saldo, archiwizacja i wersja; ma jednego ownera.
+Transaction: historyczny wpis wskazujący konto i kategorię; dodatkowo przelew/cykl,
+jeśli to z nich powstał. Kwota dodatnia, kierunek wynika z typu.
+Category: edytowalny słownik danego właściciela; wyłączenie nie kasuje historii.
+Budget: jedna kategoria + miesiąc + limit; wydatki pochodzą z historii, nie z formularza.
+Goal: nazwa, kwota docelowa, postęp, termin. Ręczna wpłata do postępu nie obciąża konta.
+RecurringPayment: szablon przyszłych zapisów; ma konto, kategorię, typ, kwotę, termin,
+częstotliwość, aktywność i ostatni błąd. To nie jest pojedyncza zaksięgowana transakcja.
+Transfer: koreluje źródło i cel z dwiema pozycjami Transaction (TRANSFER_OUT/IN).
+Household/Membership i SettlementService są szkicem dodatkowego zakresu — brak
+pełnego wspólnego budżetu/rozliczeń gospodarstwa w UI. Nie przedstawiaj tego jako gotowej funkcji.
 
-Docker uruchamia PostgreSQL w kontenerze. Compose opisuje usługę, port i wolumen.
-Wolumen zachowuje bazę po ponownym uruchomieniu kontenera.
-Maven buduje Javę i dobiera zależności; mvnw.cmd uruchamia wersję z wrappera.
-npm instaluje biblioteki i uruchamia skrypty frontendu; Angular CLI buduje SPA.
-Postman pozwala wysłać HTTP bez interfejsu, np. POST /api/transactions.
-pgAdmin pozwala obejrzeć tabele i wykonać SQL. Nie zastępuje backendu.
-Swagger UI opisuje i pozwala wywoływać API; nie jest interfejsem aplikacji.
-Git zapisuje lokalną historię. GitHub przechowuje zdalne repozytorium.
-W tym projekcie nie ma jeszcze modelu Python/R ani wywołania LLM.
+6. PRZEŚLEDŹ JEDEN WYDATEK
+HTML/ngModel -> AppComponent.saveTransaction -> TransactionService Angulara ->
+POST /api/transactions z Authorization: Bearer -> proxy/Nginx -> filtr Spring Security ->
+TransactionController -> CreateTransactionRequest/Valid -> TransactionService Java ->
+FinancialLedger -> blokada konta właściciela -> aktywna własna kategoria ->
+zmiana salda i zapis historii przez JPA -> COMMIT PostgreSQL -> DTO odpowiedzi ->
+ponowny GET kont, historii, kategorii i prognozy -> signal/computed -> nowy widok.
+JSON wejścia ma date i categoryId; odpowiedź ma transactionDate, category i categoryId.
+Ujemna kwota lub >2 miejsca po przecinku daje 400 i nie zmienia salda.
+Ręczne wydatki mogą doprowadzić saldo do wartości ujemnej; przelew wymaga środków.
+Nie zmieniaj salda drugi raz w Angularze — serwer jest źródłem prawdy.
 
-3. CAŁY PRZEPŁYW — OD KLIKNIĘCIA DO POSTGRESQL
-=============================================
-Przeglądarka -> Angular -> HttpClient -> /api przez proxy -> Spring Security
--> kontroler -> serwis -> repozytorium -> Hibernate/JDBC -> PostgreSQL.
-Odpowiedź wraca jako JSON -> interfejs TypeScript -> signal -> HTML.
-Proxy służy lokalnemu serwerowi developerskiemu. Po wdrożeniu potrzebna jest
-osobna konfiguracja routingu, np. reverse proxy. Sam frontend nie uruchamia Javy.
+7. LOGOWANIE, JWT I WŁAŚCICIEL
+Rejestracja zapisuje hash BCrypt i własne domyślne kategorie. Login porównuje hash.
+JWT ma podpis, issuer, subject, datę wydania i wygaśnięcia (godzina), uid i role.
+Podpis potwierdza integralność; JWT nie szyfruje payloadu. Base64 to kodowanie.
+Angular trzyma token w pamięci; nie zapisuje hasła ani tokenu w localStorage.
+Odświeżenie karty wymaga logowania. Logout czyści stan i anuluje trwające odczyty.
+Serwer nie utrzymuje sesji HTTP. Publiczne są auth, dokumentacja i health.
+CurrentUser ustala profil z JWT, a repozytoria filtrują po ownerId.
+Samo JWT nie zapewnia izolacji. Nie przyjmujemy ownerId od klienta.
+Próba użycia cudzego id daje 404. Nie zwracamy User jako surowej encji.
+CSRF jest wyłączone dla API z nagłówkiem Bearer, bez cookies uwierzytelniania.
+CORS nie jest potrzebny w przepływie same-origin przez proxy. Nie dodajemy *.
+Na localhost działa HTTP; publiczne wdrożenie wymaga HTTPS.
+Lokalny bootstrap używa .env tylko przy pierwszym tworzeniu użytkownika.
 
-Przykład wydatku 20 zł:
-1. Formularz w app.html wiąże pola z transactionDraft przez ngModel.
-2. saveTransaction() w app.ts wywołuje serwis Angulara.
-3. services/transaction.ts wysyła POST /api/transactions z JSON i nagłówkiem Auth.
-4. TransactionController odbiera DTO; @Valid uruchamia walidację.
-5. TransactionService pobiera Account i odejmuje BigDecimal 20 od salda.
-6. Zapisuje Account i Transaction w jednej transakcji bazodanowej.
-7. Kontroler zwraca TransactionResponse i status 201.
-8. Frontend odczytuje aktualne konta i historię. Nie zgaduje salda samodzielnie.
+8. SPÓJNOŚĆ I WSPÓŁBIEŻNOŚĆ
+Transactional daje atomowość i rollback, lecz samo nie zapobiega utraconej aktualizacji.
+AccountRepository stosuje PESSIMISTIC_WRITE. Drugi zapis tego konta czeka.
+Account ma też Version. Przelew blokuje dwa konta w stałej kolejności id,
+zmienia dwa salda, zapisuje transfer i dwie pozycje historii w jednej transakcji.
+TRANSFER_IN/OUT nie są dochodem/wydatkiem; nie trafiają do sum budżetu/modelu.
+Konto archiwizujemy przy saldzie 0, kategorię wyłączamy; nie kasujemy powiązanej historii.
+Zmiana nazwy kategorii jest widoczna przez FK. Stare tekstowe pole jest snapshotem.
+Cykle: blokada szablonu + unikalny indeks (recurring_payment_id,scheduled_date).
+Procesor sprawdza termin przed zapisem, dlatego ponowne wykonanie nie dubluje obciążenia.
+Maks. 12 terminów w jednej partii. Kolejne przejście uzupełnia dalsze zaległości.
+Dzień miesiąca ma kotwicę: 31.01 -> koniec lutego -> 31.03. Tydzień to +7 dni.
+Brak konta/wyłączona kategoria powoduje rollback i błąd do poprawienia, nie częściowy zapis.
+Ręczne POST nie mają jeszcze klucza idempotencji: ponowiony prawidłowy POST może
+utworzyć kolejną legalną transakcję. To osobny temat od blokad i idempotencji cyklu.
 
-Uwaga na nazwy kontraktu: przy tworzeniu operacji żądanie ma pole date,
-a odpowiedź pole transactionDate. Nazwy JSON muszą zgadzać się po obu stronach.
-Saldo początkowe konta nie jest automatycznie przychodem w historii.
+9. MIGRACJE I TRWAŁOŚĆ
+V1 obejmuje istniejący schemat albo tworzy go od zera. Baseline=0 to punkt startowy
+historii istniejącej bazy, nie skasowanie danych.
+V2 dodaje właścicieli, kategorię FK, przelewy, indeksy i pola harmonogramu.
+V3 zapewnia unikalny login/e-mail bez rozróżniania wielkości liter.
+V4 zachowuje dzień miesiąca w harmonogramie.
+Hibernate validate tylko porównuje mapowanie z tabelami. Flyway zmienia schemat.
+Nie edytujemy zastosowanej migracji; dopisujemy następną, bo Flyway sprawdza checksum.
+Przed zmianą wykonano pg_dump i odtworzenie w osobnej bazie dukat_upgrade_check.
+Porównano skróty starych pól kont/transakcji — migracja zachowała ich wartości.
+Wolumen zapewnia trwałość po restarcie kontenera, lecz nie chroni przed usunięciem,
+błędem aplikacji czy awarią dysku. Backup wymaga również sprawdzenia odtworzenia.
 
-4. DLACZEGO KLASA, INTERFEJS, ENUM LUB RECORD
-===========================================
-Klasa posiada stan i zachowanie. Account jest klasą, bo JPA odtwarza i śledzi
-obiekt encji. Serwis i kontroler są klasami, bo wykonują działania i mają DI.
-Klasa komponentu Angulara przechowuje stan widoku oraz obsługuje zdarzenia.
+10. SIEĆ I PORTY
+Windows/przeglądarka: localhost:4200 UI, localhost:8082 API, localhost:5433 PostgreSQL.
+W kontenerze backendu localhost wskazuje ten kontener. Baza jest pod db:5432.
+5433:5432 to host:kontener, nie dwie wersje PostgreSQL.
+Port 8082 already in use = drugi proces próbuje użyć zajętego portu.
+Używaj jednego trybu: pełny Docker ALBO baza Docker + Java IntelliJ + ng serve.
+Start-Dukat.ps1 pokazuje proces/PID, ale nie zabija dowolnego procesu.
+HTTP 200 z HTML w żądaniu API często oznacza brak proxy i fallback index.html.
+401 = brak/poprawność/ważność uwierzytelnienia, 403 = zakaz, 404 = brak własnego zasobu,
+400 = złe dane, 409 = konflikt danych, 502 = proxy nie może połączyć się z backendem.
 
-Interfejs Java opisuje kontrakt. AccountRepository extends JpaRepository<Account,
-Long> oznacza „obsługuj encję Account z identyfikatorem Long”. Spring Data
-buduje implementację/proxy w czasie działania. Sama nazwa interfejsu nie
-łączy z bazą — robi to skonfigurowana infrastruktura Spring Data i JPA.
-Nie trzeba tworzyć ręcznie klasy AccountRepositoryImpl dla zwykłego CRUD.
+11. ANGULAR — CO WARTO UMIEĆ WYJAŚNIĆ
+Component łączy klasę/HTML/CSS; standalone ma zależności w imports.
+FormsModule i ngModel łączą pola ze stanem formularza. Min/required poprawiają UX,
+ale backend musi powtórzyć walidację, bo każdy może wywołać API bez formularza.
+signal przechowuje stan, computed wylicza wartości zależne, np. miesięczne wydatki.
+Serwis HTTP korzysta z inject(HttpClient); komponent nie tworzy własnego klienta.
+Observable opisuje przyszłą odpowiedź; subscribe ją obsługuje, finalize kończy stan loading.
+forkJoin czeka na komplet odczytów. Wylogowanie anuluje oczekujące żądania,
+żeby stara odpowiedź nie przywróciła danych po logout.
+Input przekazuje dane do PlanningComponent, Output.changed prosi rodzica o refresh.
+Nowe moduły mają osobne DTO/interfejsy w services/planning.ts i wspólny komponent widoków.
+@ przypomina adnotacje Javy, ale TypeScript używa dekoratorów.
+@if/@for/@switch/@case/@empty/@else w HTML są składnią szablonu Angulara,
+a @media/@import w CSS regułami CSS — nie są adnotacjami Javy ani dekoratorami TS.
 
-Interfejs TypeScript Account opisuje kształt JSON: id, name, accountType,
-balance. Nie jest serwisem ani beanem; znika z wynikowego JavaScriptu.
-Typy TypeScript nie walidują automatycznie JSON-a otrzymanego z sieci.
+12. MODELE I ANALITYKA
+Dashboard nie pokazuje wymyślonych sum: pobiera historię zalogowanego użytkownika.
+Prognoza bierze maks. 12 miesięcy przed miesiącem celu, bez bieżących częściowych danych.
+Mniej niż 3 kolejne miesiące -> null / INSUFFICIENT_DATA, a nie 0 zł.
+3–5 miesięcy -> średnia ostatnich trzech. Od 6 miesięcy porównujemy średnią,
+trend OLS z maks. 6 punktów i naiwny ostatni miesiąc przez walidację kroczącą/MAE.
+Miesiąc bez operacji przerywa ciąg; tylko przychody oznaczają 0 zapisanych wydatków.
+Miesiąc z samymi przelewami nie jest historią wydatków do modelu.
+MAE użyte do wyboru modelu nie jest niezależnym testem końcowym. Nie mamy jeszcze
+holdoutu, sezonowości, przedziałów ani niezależnego dowodu kompletności danych.
+Szczegóły: MODEL_CARD_DUKAT.md. Prosta regresja jest modelem uczonym z danych;
+nie trzeba udawać osobnego serwera ML ani dopisywać fikcyjnej trafności.
 
-Enum zamyka zbiór dozwolonych wartości. TransactionType: INCOME/EXPENSE.
-Role i HouseholdRole opisują planowane role. Ich istnienie nie wdraża
-samodzielnie kontroli dostępu. @Enumerated(STRING) zapisuje nazwę stałej.
+13. JAK POKAZAĆ PROJEKT W 7 MINUT
+1) Start jednym skryptem, trzy zdrowe kontenery i porty.
+2) Login/rejestracja; drugi profil nie widzi pierwszego.
+3) Dodaj dwa konta, przychód i wydatek; pokaż zmienione saldo i walidację.
+4) Przelew: dwa wpisy historii i niezmieniona suma pieniędzy/przychodów/wydatków.
+5) Limit budżetu i postęp celu; wyjaśnij różnicę między postępem a przepływem pieniędzy.
+6) Cykl: aktywacja, termin, ręczne wykonanie należnych, ponowienie bez duplikatu.
+7) Swagger/Postman, migracje, testy i ograniczenia prognozy.
+Pytaj siebie: gdzie sprawdzamy regułę, kto jest właścicielem, co po awarii,
+co po retry i co gdy dwa żądania przyjdą jednocześnie?
 
-Record Java jest zwięzłym nośnikiem danych: konstruktor, akcesory, equals,
-hashCode i toString. Pola są final, ale record nie gwarantuje głębokiej
-niezmienności zawartych kolekcji. DTO konta/przelewu/odpowiedzi to recordy.
-Record request.amount() różni się od klasy request.getAmount().
-CreateTransactionRequest jest zwykłą klasą z getterami; dlatego serwis używa
-getAmount(), getAccountId(), getDate(), getType(), a nie składni recorda.
+14. WSZYSTKIE ADNOTACJE JAVA I DEKORATORY TYPESCRIPT
+Indeks wszystkich lokalizacji i plików: INDEKS_PLIKOW_I_ADNOTACJI_DUKAT.txt.
+Poniższe definicje obejmują kod produkcyjny i testy.
 
-5. PO CO TYLE WARSTW
-====================
-Model/encja: dane i mapowanie tabel, klucze oraz relacje.
-DTO: kontrakt wejścia/wyjścia API. Klient nie musi wysyłać całej encji ani id.
-Repository: dostęp do danych, bez reguł dotyczących tego, ile odjąć od salda.
-Service: przypadki użycia i reguły; granice transakcji, prognozowanie.
-Controller: ścieżki HTTP, odebranie żądania, delegacja i odpowiedź.
-ExceptionHandler: spójne statusy i komunikaty błędów.
-Config: sposób składania i uruchomienia infrastruktury.
+@Autowired
+Spring wstrzykuje zależność. U nas pole testu pobiera JdbcTemplate/JwtEncoder; w kodzie produkcyjnym zwykle używamy konstruktorów bez tej adnotacji.
 
-Nie każda encja potrzebuje wszystkich warstw. Warstwę dodajemy dla
-odpowiedzialności i przypadku użycia, nie dla samej symetrii folderów.
-UserController obecnie korzysta z repozytorium bezpośrednio; to prostszy,
-ale niedokończony fragment wymagający DTO i poprawnej obsługi haseł.
-Membership ma encję, ale brak kompletnego przypadku użycia członkostwa.
+@Bean
+Metoda konfiguracji zwraca obiekt zarządzany przez Spring, np. filtr SecurityFilterChain, PasswordEncoder, JwtEncoder.
 
-6. MAPA NAJWAŻNIEJSZYCH PLIKÓW I ICH WSPÓŁPRACY
-===============================================
-Frontend (dukat-ui):
-src/main.ts — startuje Angular przez bootstrapApplication.
-src/app/app.config.ts — rejestruje klienta HTTP, router i polskie formaty dat/kwot.
-src/app/app.routes.ts — konfiguracja routera; główne zakładki wybiera obecnie stan
-view w komponencie, nie rozbudowana nawigacja URL.
-src/app/app.ts — sygnały kont/historii, filtry, logowanie, modale i zapis.
-src/app/app.html — formularze i widoki, wyświetlanie sygnałów, @if oraz @for.
-src/app/app.css — układ i responsywność głównej aplikacji.
-src/app/styles/panels.css — karty podsumowań, wykres słupkowy, panel kont.
-src/app/styles/details.css — historia, lista kont i kategorie.
-src/app/styles/sapphire.css — szafirowy motyw nadpisujący kolory komponentu.
-src/styles.css — globalne tokeny, formularze, logowanie i dialogi.
-src/app/services/session.ts — Basic Auth tylko w pamięci, nagłówki żądań.
-src/app/services/account.ts — GET/POST /api/accounts oraz interfejsy danych.
-src/app/services/transaction.ts — GET/POST /api/transactions i ich kontrakty.
-src/app/services/forecast.ts — GET /api/forecasts?month=RRRR-MM.
-src/app/components/icon.ts — wspólne ikony SVG, bez logiki finansowej.
-src/app/components/forecast-panel.ts/html/css — prezentacja prognozy, wykresu,
-wyników MAE oraz ograniczeń. Algorytm działa w Javie, nie w tym komponencie.
-src/app/app.spec.ts — testy zachowania pulpitu i formularzy na kontrolowanym HTTP.
-src/app/services/account.spec.ts — test adresu, danych i nagłówków serwisu.
-src/index.html oraz public/dukat.svg — dokument wejściowy, tytuł, język i ikona.
-angular.json — konfiguracja build/serve/test, proxy i limity rozmiarów.
-package.json — zależności i skrypty; package-lock.json utrwala rozwiązane wersje.
-tsconfig*.json — reguły TypeScriptu. proxy.conf.json — przekazanie /api na 8082.
+@BeforeEach
+JUnit uruchamia metodę przed każdym testem, aby przygotować niezależne dane i mocki.
 
-Backend (src/main/java/com/example/demoapp):
-DemoappApplication — start Spring Boot i skanowanie komponentów.
-controller/AccountController, service/AccountService, repository/AccountRepository,
-model/Account, dto/account/CreateAccountRequest — przypadek użycia kont.
-controller/TransactionController, service/TransactionService,
-repository/TransactionRepository, model/Transaction,
-dto/transaction/CreateTransactionRequest i TransactionResponse — operacje i saldo.
-controller/TransferController, service/TransferService i DTO przelewu — przeniesienie
-kwoty pomiędzy dwoma kontami. Nie ma jeszcze pełnej historii przelewów.
-controller/ForecastController, service/ForecastService i dto/forecast/ForecastResponse
-— obliczanie prognoz na historii z TransactionRepository.
-controller/DashboardController i service/DashboardService — liczniki zasobów.
-Pulpit Angulara wylicza swoje podsumowania z kont i historii, nie z tych liczników.
-Budget, Goal, Household, RecurringPayment mają swoje kontrolery, serwisy i repozytoria
-z prostymi operacjami; nie są jeszcze pełnymi ekranami interfejsu.
-Category i User mają repozytoria; User ma prosty kontroler. Membership ma encję.
-TransactionType, Role, HouseholdRole to enumy domenowe.
-config/SecurityConfig — chroni API, Basic Auth i JSON przy błędzie logowania.
-config/OpenApiConfig — opis dokumentacji Swagger/OpenAPI.
-config/JwtConfig, RestClientConfig — miejsca pod przyszłe funkcje; nie realizują
-jeszcze JWT ani integracji kursów walut.
-config/SchedulingConfig — włącza możliwość zadań cyklicznych. Brak metody
-@Scheduled oznacza, że nie nalicza jeszcze automatycznie płatności.
-aspect/AuditLoggingAspect — obecnie zwykły @Component, bez @Aspect i porad AOP.
-service/SettlementService — miejsce na rozliczenia, bez gotowego algorytmu.
-init/DemoDataLoader — dodaje kategorie i Konto Główne, jeśli odpowiednie tabele
-są puste. Nie resetuje danych i nie dokłada sztucznej historii do Twojej bazy.
-exception/GlobalExceptionHandler — m.in. 400 dla walidacji, 409 dla konfliktu
-unikalności i ogólny komunikat 500 z właściwym logowaniem szczegółów na serwerze.
+@Column
+Mapowanie pola na kolumnę, np. nullable=false. Nie jest walidacją JSON; schemat produkcyjny tworzą SQL Flyway.
 
-Konfiguracja i testy:
-src/main/resources/application.properties — baza, port 8082, Hibernate i logi.
-pom.xml — zależności Maven. Nie potrzebujemy Thymeleaf do obecnego SPA Angular.
-docker-compose.yml — PostgreSQL: host 5433 -> kontener 5432, trwały wolumen.
-mvnw, mvnw.cmd, .mvn/wrapper — przenośne uruchamianie Mavena.
-src/test/.../DemoappApplicationTests.java — prawdziwy serwer na losowym porcie,
-H2 i testy API, bezpieczeństwa, Swaggera, walidacji, sald oraz przelewów.
-src/test/.../TransactionServiceTest.java — testy jednostkowe reguł na mockach.
-src/test/.../ForecastServiceTest.java — modele, braki danych, granice czasowe.
-Pełny automatyczny spis własnych źródeł i wystąpień adnotacji jest w pliku
-INDEKS_PLIKOW_I_ADNOTACJI_DUKAT.txt. Nie obejmuje node_modules ani target.
+@Component
+Java: ogólny bean Springa (inicjalizator, scheduler). Angular/TypeScript: dekorator łączący klasę, HTML, CSS i imports komponentu. To dwa różne mechanizmy o podobnej nazwie.
 
-7. STAN FRONTENDU — CO MUSZĘ UMIEĆ WYJAŚNIĆ
-=========================================
-signal przechowuje reaktywną wartość, np. accounts(). Zmiana przez set()
-odświeża zależny widok. computed wylicza np. sumę sald; nie trzyma drugiej kopii.
-inject pobiera zależność z kontenera DI Angulara.
-Observable opisuje strumień; żądanie HttpClient wykonuje się po subskrypcji.
-forkJoin czeka na zakończenie odczytu kont i transakcji; błąd jednego przerywa całość.
-finalize kończy wskaźnik ładowania także po błędzie/anulowaniu.
-Poprzedni odczyt prognozy jest anulowany po zmianie miesiąca, aby spóźniona
-odpowiedź nie zastąpiła wyniku dla nowego filtra.
-CurrencyPipe i DatePipe formatują widok. Nie zmieniają kwoty ani daty w bazie.
-[(ngModel)] to wiązanie dwukierunkowe. (click) podpina zdarzenie, [disabled]
-ustawia właściwość, {{ ... }} wyświetla wynik. To nie są adnotacje Javy.
+@ConditionalOnProperty
+Tworzy bean tylko przy określonej konfiguracji. Scheduler wymaga app.scheduling.enabled=true; w testach automatyczne księgowanie jest wyłączone.
 
-8. LOGOWANIE I NAPRAWIONE BŁĘDY — DLACZEGO SAMO HASŁO NIE WYSTARCZAŁO
-==================================================================
-Otwieram aplikację na http://localhost:4200, backend działa na 8082.
-Login domyślnego Spring Security: user. Hasło bierze się z najnowszego
-uruchomienia backendu. Restart/devtools może wygenerować nowe hasło.
-Login i hasło PostgreSQL z Compose nie są danymi logowania do interfejsu.
-Użytkownik z tabeli users nie jest jeszcze użytkownikiem Spring Security.
+@Configuration
+Klasa definiująca konfigurację Springa i metody Bean, np. JwtConfig/SecurityConfig/OpenApiConfig.
 
-Błąd HTTP 200: Angular dostał HTML strony zamiast JSON-a z /api. Serwer
-frontendu działał bez wczytanego proxy. Po restarcie z właściwą konfiguracją
-żądanie trafiło do Javy. HttpClient zgłasza błąd parsowania mimo statusu 200.
-Dlatego kod ma teraz osobny komunikat o HTML/proxy.
+@Container
+Pole Testcontainers zarządzane przez rozszerzenie JUnit. PostgreSQL testów ma losowy port i własne dane.
 
-Drugie okno logowania przeglądarki: odpowiedź WWW-Authenticate: Basic
-uruchamiała natywny monit. API zwraca teraz 401 w JSON bez tego nagłówka,
-a frontend oznacza żądanie X-Requested-With: XMLHttpRequest. Błędne hasło
-ma pokazać błąd w formularzu Dukata. Chronione endpointy nadal wymagają logowania.
+@DeleteMapping
+Obsługa HTTP DELETE. U nas konto/kategoria są archiwizowane, cykl wstrzymywany, a budżet/cel usuwany.
 
-Authorization: Basic ... zawiera Base64 z login:hasło. Base64 nie jest
-szyfrowaniem! Poza pracą lokalną potrzebne jest HTTPS i projekt właściwej sesji.
-Dane są w pamięci frontendu, nie w localStorage; przeładowanie strony kończy
-jego sesję. Wylogowanie czyści stan frontendu. Pełny cykl sesji serwera to
-oddzielna część do dopracowania przed produkcją.
+@Digits
+Maksymalna liczba cyfr całkowitych i po przecinku w DTO. Nie zaokrągla po cichu kwoty 1.001 do groszy, lecz odrzuca ją.
 
-9. PROGNOZA — KONKRETNY WKŁAD Z OBSZARU ML
-=========================================
-GET /api/forecasts?month=2026-10 prognozuje cały październik z miesięcy
-poprzedzających październik. Kwot października nie używa do dopasowania.
-To prognoza miesięczna, nie przewidywanie konkretnego rachunku lub kursu akcji.
+@DynamicPropertySource
+Test podaje Springowi dynamiczny URL, login i hasło tymczasowego PostgreSQL.
 
-Repozytorium odczytuje maksymalnie 12 miesięcy przed miesiącem celu.
-Serwis sumuje wydatki po miesiącach i bierze ciąg miesięcy od ostatniego
-zamkniętego wstecz. Miesiąc bez żadnej operacji przerywa ciąg. Miesiąc
-z przychodem i bez wydatku ma zero ZAPISANYCH wydatków. Kompletności ręcznie
-wpisanej historii nie potrafimy potwierdzić — jest jawnym założeniem.
+@Email
+Sprawdza format e-maila w rejestracji; nie dowodzi istnienia skrzynki ani potwierdzenia adresu.
 
-Przy mniej niż 3 miesiącach wynik jest INSUFFICIENT_DATA, a prognoza null.
-Przy 3–5 miesiącach używamy średniej ostatnich 3 miesięcy.
-Przy >=6 miesiącach porównujemy:
-- MOVING_AVERAGE_3: średnia ostatnich trzech sum wydatków.
-- LINEAR_TREND: regresja liniowa OLS z maks. sześciu ostatnich punktów.
-  Parametry a i b są dopasowywane do danych: y = a*x + b. To uczenie modelu
-  regresji, choć nie wymaga biblioteki ML. Ujemny wynik obcinamy do zera.
-- LAST_MONTH: naiwny punkt odniesienia, czyli ostatnia obserwacja.
+@EnableScheduling
+Włącza wykonywanie metod Scheduled. Jest przy klasie startowej aplikacji.
 
-Walidacja krocząca: uczymy na wcześniejszym fragmencie, przewidujemy kolejny
-miesiąc, przesuwamy granicę i powtarzamy. Modele widzą te same miesiące testowe.
-MAE = średnia z |rzeczywiste wydatki - prognoza|, jednostka PLN. Mniej = lepiej.
-Przy remisie preferencja wynika z kolejności modeli: średnia, trend, ostatni.
-Najniższe MAE służy wyborowi modelu. Ponieważ ten sam wynik wybiera model,
-NIE JEST niezależnym oszacowaniem jakości wybranego modelu na przyszłość.
+@Entity
+Klasa mapowana na rekordy bazy przez JPA/Hibernate. Account jest encją, DTO nią nie jest.
 
-Przykład: 100, 200, 300, 400, 500, 600 -> trend prognozuje 700.
-Na tak sztucznie liniowym zbiorze może mieć MAE=0. To test działania,
-nie dowód, że model jest idealny na prawdziwych wydatkach.
-Nie ma jeszcze sezonowości, cech rachunków, niepewności, osobnego holdoutu
-ani monitoringu dryfu. Dokumentacja modelu: MODEL_CARD_DUKAT.md.
+@EntityGraph
+Określa relacje dociągane przy odczycie, np. konto i kategoria historii. Pomaga ograniczyć N+1 i odczyty poza transakcją.
 
-Kwoty biznesowe w Javie pozostają BigDecimal. Do obliczeń modelu
-statystycznego używane są double; wynik zaokrąglamy do 2 miejsc. W TypeScript
-number ma arytmetykę zmiennoprzecinkową, dlatego reguł salda pilnuje backend.
+@Enumerated
+Enum zapisujemy jako STRING, np. EXPENSE. Zmiana nazwy stałej wymaga świadomej migracji istniejących danych.
 
-10. WSZYSTKIE ADNOTACJE I DEKORATORY — ZNACZENIE W TYM KODZIE
-============================================================
-Spring i konfiguracja:
-@SpringBootApplication — start i konfiguracja aplikacji, skanowanie komponentów
-w pakiecie com.example.demoapp oraz podpakietach.
-@Configuration — klasa konfiguracji beana; nie oznacza automatycznej realizacji
-tego, co opisano wyłącznie komentarzem (np. JwtConfig).
-@Bean — Spring rejestruje obiekt zwrócony z metody, np. SecurityFilterChain
-lub konfigurację OpenAPI; zależności można następnie wstrzykiwać.
-@Component — ogólny bean; DemoDataLoader i przygotowane miejsce na audyt.
-@Service — komponent warstwy przypadków użycia, np. TransactionService.
-@Repository — komponent dostępu do danych; implementację interfejsów JPA
-zapewnia Spring Data. Interfejsy Spring Data są wykrywane także bez tej etykiety.
-@EnableScheduling — uruchamia obsługę harmonogramów; bez @Scheduled na metodzie
-nie powstaje konkretne zadanie cykliczne.
+@ExceptionHandler
+Wskazuje wyjątki obsługiwane przez metodę. GlobalExceptionHandler mapuje je na 400/401/403/404/409/500.
 
-HTTP i błędy:
-@RestController — komponent kontrolera; wyniki metod są serializowane do body,
-zazwyczaj JSON. Nie zwraca nazwy szablonu Thymeleaf.
-@RequestMapping — wspólny prefiks adresu kontrolera, np. /api/transactions.
-@GetMapping — metoda odpowiada na GET: odczyt danych.
-@PostMapping — metoda odpowiada na POST: tworzenie lub wykonanie operacji.
-@RequestBody — mapuje body JSON na obiekt Java. Samo w sobie nie waliduje pól.
-@RequestParam — pobiera parametr URL; tutaj opcjonalny month w prognozie.
-@CrossOrigin — deklaruje politykę CORS dla kontrolera. Nie jest logowaniem
-ani uprawnieniem użytkownika. Obecne origins="*" wymaga przemyślenia przy wdrożeniu.
-@Valid — uruchamia kontrolę ograniczeń z DTO odebranego w kontrolerze.
-@RestControllerAdvice — wspólna obsługa wyjątków kontrolerów.
-@ExceptionHandler — wybiera metodę obsługującą dany typ wyjątku i odpowiedź HTTP.
+@GeneratedValue
+Id generuje baza przez strategię IDENTITY. Klient tworzący konto nie nadaje własnego id.
 
-JPA i baza:
-@Entity — klasa mapowana przez JPA. Samo @Entity nie tworzy tabeli; decyduje
-konfiguracja schematu/migracji, obecnie ddl-auto=update.
-@Table — jawna nazwa tabeli, np. transactions.
-@Id — klucz główny encji.
-@GeneratedValue — sposób generowania id; IDENTITY deleguje je bazie przy zapisie.
-@Column — właściwości kolumny, np. nullable=false i unique=true.
-NOT NULL nie zabrania pustego tekstu lub spacji: do tego służy walidacja DTO.
-@ManyToOne — wiele transakcji wskazuje jedno konto. LAZY oznacza możliwość
-opóźnionego doczytania relacji; nie gwarantuje braku dodatkowych zapytań.
-@JoinColumn — kolumna relacji, tutaj account_id wskazujące konto.
-@Enumerated — zapis enuma jako STRING zamiast zależnego od kolejności numeru.
-@Transactional — granica transakcji bazodanowej. Zapis historii i salda
-kończy się razem; domyślnie wyjątek RuntimeException wycofuje zmiany.
-Działa przez proxy Springa: zwykłe wywołanie metody na tym samym obiekcie może
-ominąć przechwycenie. readOnly w prognozie opisuje odczyt, nie jest zabezpieczeniem
-przed każdym możliwym zapisem. Atomowość nie rozwiązuje utraconych aktualizacji
-przy równoczesnych zmianach tego samego salda; potrzeba blokady lub wersjonowania.
+@GetMapping
+Odczyt HTTP GET, np. lista kont albo prognoza. Odczyt nie powinien zmieniać pieniędzy.
 
-Walidacja DTO:
-@NotNull — wartość musi istnieć; tekst "" lub "   " nadal może przejść.
-@NotBlank — tekst nie może być null, pusty ani składać się tylko z białych znaków.
-@Positive — liczba >0, np. kwota operacji. Samo nie wymaga nie-null.
-@PositiveOrZero — liczba >=0, np. saldo początkowe; łączone z @NotNull.
-@Pattern — tekst musi pasować do wyrażenia, tutaj INCOME|EXPENSE.
-@Size — ograniczenie długości, np. nazwy konta do 100 znaków.
+@HostListener
+Angular podpina zdarzenie, np. Escape zamyka dialog. Nie ma związku z serwerem HTTP.
 
-Java i testy:
-@Override — kompilator sprawdza, czy metoda nadpisuje/implementuje istniejącą
-metodę; DemoDataLoader.run implementuje CommandLineRunner.
-@SpringBootTest — uruchamia kontekst aplikacji w teście; RANDOM_PORT wybiera
-wolny port, a właściwości testu kierują na H2, nie na PostgreSQL.
-@Value — wstrzykuje wartość konfiguracji, tutaj losowy port serwera testowego.
-@Test — metoda będąca przypadkiem testowym JUnit.
-@BeforeEach — przygotowanie przed każdym testem.
-@Mock — pole będące atrapą zależności Mockito, np. repozytorium.
-@InjectMocks — Mockito składa testowany obiekt z mocków; to nie jest DI Springa.
-Mock musi być zainicjalizowany (w istniejącym teście robi to openMocks).
+@Id
+Klucz główny encji. W encjach OwnedResource identyfikator jest odziedziczony.
 
-Angular/TypeScript — dekoratory, nie adnotacje Javy:
-@Component — łączy klasę komponentu, selector, szablon, style i imports.
-@Injectable — rejestruje usługę DI. providedIn:'root' udostępnia ją w głównym
-injectorze aplikacji. Typ danych Account nie zastępuje klasy AccountService.
-@Input — wejście komponentu, np. nazwa ikony oraz dane/stany panelu prognozy.
-@HostListener — nasłuch zdarzenia; Escape zamyka dialog, gdy nie trwa zapis.
-@if, @else, @for i @empty to bloki sterujące SZABLONU, nie dekoratory klas.
-@for z track id identyfikuje wiersze, a @empty wyświetla brak wyników.
+@Injectable
+Dekorator serwisu Angulara. providedIn:root udostępnia instancję przez DI, np. SessionService.
 
-Przykładowe zapisy NIEOBECNE obecnie: @Autowired, @Scheduled, @Aspect,
-@PreAuthorize, @Version, @Data, @Getter i @Setter. Nie dopisujemy ich do listy
-użytych tylko dlatego, że występują w internetowych przykładach. Konstruktory
-wstrzykują zależności bez @Autowired, gdy klasa ma jeden konstruktor.
+@Input
+Angular: dane od rodzica do komponentu, np. konta, kategorie i miesiąc dla PlanningComponent.
 
-11. URUCHOMIENIE, TESTY I DEBUGOWANIE
-===================================
-Katalog główny: C:\Users\igaku\Desktop\głupotki w html\demoapp
-Terminal 1: docker compose up -d
-Następnie .\mvnw.cmd spring-boot:run (albo uruchomienie w IntelliJ).
-Terminal 2: cd .\dukat-ui; npm.cmd start
-Przy pierwszej instalacji biblioteki frontendu: npm.cmd ci.
-Nie uruchamiam dwóch backendów na porcie 8082 naraz.
+@JoinColumn
+Nazwa kolumny relacji, np. account_id/category_id/owner_id. Faktyczny FK jest też w migracji SQL.
 
-Testy backendu: .\mvnw.cmd verify
-Testy frontendu (w dukat-ui): npm.cmd test -- --watch=false
-Build frontendu (w dukat-ui): npm.cmd run build
-H2 izoluje testy od mojej bazy. Testy jednostkowe nie potwierdzają same
-w sobie działania przeglądarki — dlatego potrzebne jest też przejście scenariusza.
-Ostrzeżenia o budżecie CSS nie są błędami kompilacji; nie zwiększamy limitów
-wyłącznie po to, aby ukryć ostrzeżenie.
+@JsonIgnore
+Nie serializuje właściciela do JSON. Główna ochrona odpowiedzi to i tak jawne DTO, bez hasła.
 
-Co sprawdzam, gdy nie działa:
-- adres strony 4200, backend 8082, baza 5433, konsola startu;
-- Network: URL, metoda, status i Content-Type. 200 HTML to nie poprawny JSON;
-- Console: błędy szablonu/parsowania. Nie wklejam haseł ani Authorization;
-- 401: dane logowania; 400: wejście/format; 409: konflikt, np. nazwa konta;
-- log Springa i zapytania bazy, a nie tylko wygląd ekranu;
-- czy po zmianie proxy zrestartowałam serwer Angulara.
+@Lock
+Tryb blokowania zapytania JPA. PESSIMISTIC_WRITE blokuje modyfikowane konta/szablony aż do końca transakcji.
 
-12. CO JESZCZE ZROBIĆ, ŻEBY SIĘ WYKAZAĆ — PRIORYTETY DO ODDANIA
-==============================================================
-Teraz kończę zakres i uczę się wyjaśniać istniejący kod. Nie dodaję kolejnych
-modułów na ostatnią chwilę. Warto przygotować:
-1. Scenariusz 5-minutowego demo: login -> konto -> wydatek -> saldo -> filtr
--> wykres -> prognoza -> błąd walidacji. Pokażę, jakie dane idą w HTTP.
-2. Diagram przepływu i dwie decyzje architektoniczne: monolit warstwowy zamiast
-mikroserwisów oraz kontrakty DTO zamiast wystawiania całych encji.
-3. Tabelę przypadków testowych: działanie poprawne, błędne hasło, kwota <=0,
-pusta nazwa, duplikat konta, brak historii, brak miesiąca w szeregu.
-4. Wyjaśnienie ML: baseline, granica czasowa, MAE, brak leakage, ograniczenia.
-5. Małe commity opisane w PLAN_COMMITOW.md i README z instrukcją startu.
+@ManyToOne
+Wiele rekordów wskazuje jeden rekord, np. wiele transakcji jedno konto, wiele kont jednego właściciela.
 
-Następny etap po demonstracji, z uzasadnieniem:
-- bezpieczeństwo: BCrypt/DTO użytkowników i izolacja kont po właścicielu;
-- stabilność: migracje Flyway, testy na PostgreSQL, blokada/wersja salda;
-- ML: większy zestaw danych, potwierdzona kompletność historii, osobny holdout,
-porównanie modeli na tych samych datach, analiza błędów i dopiero później
-sezonowość/cechy/monitoring. Nie oceniam modelu wyłącznie na danych treningowych.
+@MappedSuperclass
+Wspólne mapowane pola id/owner w OwnedResource, dziedziczone do tabel encji. Nie powstaje tabela owned_resource.
 
-Pytania, na które mam umieć odpowiedzieć własnymi słowami:
-Dlaczego BigDecimal? Co wycofa @Transactional? Czym różni się 400 od 401?
-Kto implementuje JpaRepository? Dlaczego DTO to nie encja? Czemu konto ma
-serwis, a ikona nie ma repozytorium? Dlaczego regresja nie widzi miesiąca celu?
-Co oznacza null prognozy? Czemu MAE=0 na sztucznym trendzie nie dowodzi jakości?
-Jak znaleźć błąd między Angular -> proxy -> API -> baza? Co zmienię przed produkcją?
+@NotBlank
+Tekst nie może być null, pusty ani składać się ze spacji, np. opis operacji.
 
-13. GITHUB, AI I WŁASNOŚĆ
-========================
-Pomoc AI sama w sobie nie odbiera prawa do użycia otrzymanego kodu.
-Według europejskich warunków OpenAI, w relacji użytkownik–OpenAI prawa do
-Output należą do użytkownika w granicach prawa; wynik nie musi być unikalny.
-To nie rozstrzyga samodzielnie ochrony prawnoautorskiej ani praw firmy.
-Prywatne repo i wcześniejsze publikacje nie przesądzają zapisów umowy stażowej,
-przeniesienia praw lub NDA. Przed publikacją firmowych fragmentów sprawdzam
-umowę i ustalenia z opiekunem, a także licencje użytych zależności.
-Mogę uczciwie zaznaczyć użycie AI i opisać własne decyzje oraz weryfikację.
-GitHub z kodem nie uruchamia automatycznie backendu i PostgreSQL.
+@NotNull
+Wartość musi istnieć. Sama adnotacja nie odrzuca pustego tekstu ani ujemnej liczby.
 
-Źródła sprawdzone 20.10.2026:
-https://openai.com/policies/eu-terms-of-use/ (Content / Ownership of content)
-https://eli.gov.pl/api/acts/DU/2021/1062/text.html (art. 74 ust. 3 — program pracowniczy;
-moja umowa stażowa i forma współpracy wymagają odrębnego sprawdzenia)
-https://docs.spring.io/spring-security/reference/7.0/servlet/authentication/passwords/basic.html
-Pozostałe objaśnienia odnoszą się bezpośrednio do kodu w tym repozytorium.
+@Operation
+Opis operacji w OpenAPI/Swagger. Dokumentuje zachowanie; nie wykonuje autoryzacji ani walidacji.
+
+@Output
+Angular: zdarzenie od dziecka do rodzica. changed powoduje odświeżenie sald, expired wraca do logowania.
+
+@Override
+Kompilator sprawdza, że implementujemy/nadpisujemy istniejącą metodę, np. CommandLineRunner.run.
+
+@Param
+Wiąże argument repozytorium z nazwanym parametrem zapytania JPQL, np. :ownerId.
+
+@PathVariable
+Pobiera fragment ścieżki, np. id z /api/accounts/5. To id nadal wymaga kontroli właściciela.
+
+@Pattern
+Dopuszczalny wzorzec tekstu, np. INCOME|EXPENSE albo miesiąc YYYY-MM. Nie jest zabezpieczeniem wszystkich reguł biznesowych.
+
+@Positive
+Liczba większa od zera. Kwota transakcji/przelewu musi być dodatnia.
+
+@PositiveOrZero
+Dopuszcza zero, np. saldo początkowe albo początkowy postęp celu.
+
+@PostMapping
+HTTP POST tworzący zasób albo wykonujący akcję: logowanie, zapis transakcji, przelew, wykonanie cyklu.
+
+@PutMapping
+HTTP PUT edytujący dozwolone pola istniejącego zasobu, np. nazwę konta lub limit budżetu.
+
+@Query
+Jawne JPQL repozytorium. Posługuje się nazwami encji i pól Javy, np. a.owner.id, a nie nazwami kolumn SQL.
+
+@Repository
+Bean warstwy danych. Interfejs JpaRepository dostaje implementację Spring Data; nie piszemy klasy implementującej CRUD ręcznie.
+
+@RequestBody
+Zamienia JSON żądania na DTO. Nie czyni treści zaufaną — dalej są Valid i reguły serwisu.
+
+@RequestMapping
+Wspólny prefiks kontrolera, np. /api/accounts.
+
+@RequestParam
+Parametr query string, np. ?month=2026-10 albo ?includeArchived=true.
+
+@ResponseStatus
+Status odpowiedzi metody, np. 201 po utworzeniu i 204 po archiwizacji bez body.
+
+@RestController
+Kontroler HTTP zwracający dane, zwykle JSON. Nie renderuje widoku Thymeleaf.
+
+@RestControllerAdvice
+Globalna obsługa odpowiedzi/wyjątków kontrolerów. U nas jeden wspólny GlobalExceptionHandler.
+
+@Scheduled
+Harmonogram w procesie backendu. Co minutę wyszukuje należne cykle. Backend musi działać, aby wykonywać zadania.
+
+@Schema
+Opisy pól/modeli DTO w Swaggerze, np. jednostki, format i null w prognozie. Nie zastępuje NotNull/Positive.
+
+@SecurityRequirements
+Pusta lista wymagań dokumentacji dla publicznego AuthController; reguły runtime nadal ustawia SecurityConfig.
+
+@Service
+Bean warstwy reguł biznesowych. Nie tworzymy go samodzielnie przez new w kontrolerze.
+
+@Size
+Długość tekstu/listy, np. nazwa do 100 znaków lub hasło 10–72 znaki. Limit bajtów UTF-8 hasła dodatkowo sprawdza serwis.
+
+@SpringBootApplication
+Punkt startowy Boot: konfiguracja, autokonfiguracja i skanowanie komponentów w pakiecie/podpakietach.
+
+@SpringBootTest
+Test uruchamia kontekst aplikacji; RANDOM_PORT sprawdza prawdziwe HTTP na wolnym porcie.
+
+@Table
+Nazwa tabeli encji, np. transactions. Schemat zmieniamy przez Flyway, a nie ręczne kliknięcia pgAdmina.
+
+@Test
+JUnit oznacza metodę jako test. Test ma wykrywać błąd zachowania, np. utraconą aktualizację salda.
+
+@Testcontainers
+Rozszerzenie JUnit uruchamia i sprząta oznaczone kontenery testowe. Nie usuwa wolumenu aplikacji.
+
+@Transactional
+Wspólna transakcja bazodanowa. Saldo+historia albo dwie strony przelewu zapisują się razem lub cofają przy RuntimeException. readOnly oznacza odczyt. Wywołanie musi przejść przez proxy Springa, dlatego processor jest osobnym beanem. Sama adnotacja nie chroni przed wszystkimi wyścigami.
+
+@Valid
+Uruchamia walidację ograniczeń DTO w kontrolerze. Błędna kwota daje 400 przed logiką finansową.
+
+@Value
+Wstrzykuje wartość konfiguracji Springa, np. TTL lub klucz z zmiennej środowiskowej. To nie Angular binding.
+
+@Version
+Wersja rekordu Account dla kontroli równoczesnych aktualizacji. JPA porównuje ją przy UPDATE; nie zastępuje polityki retry ani FK.
+
+15. GIT — BEZ JEDNEGO WIELKIEGO COMMITA
+Najpierw git status i diff, potem zaznacz konkretną grupę z PLAN_COMMITOW.md.
+add wybiera zmiany, commit zapisuje lokalną historię, push wysyła do zdalnego repo.
+Sprawdź git diff --cached przed commitem. Nie zaznaczaj .env, target, node_modules,
+dist ani logów. Sam .gitignore nie usuwa sekretu z wcześniejszej historii.
+Autorka powinna umieć przejść od formularza do SQL i wyjaśnić własne decyzje.
