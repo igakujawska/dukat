@@ -1,0 +1,418 @@
+<section class="planning" aria-label="Planowanie finansów">
+  @if (error()) {
+    <p class="alert error" role="alert">{{ error() }}</p>
+  }
+  @if (notice()) {
+    <p class="alert success" role="status">{{ notice() }}</p>
+  }
+  <div class="planning-grid">
+    <section class="editor panel">
+      <div class="editor-title">
+        <span class="eyebrow">TWOJE NASTĘPNE KROKI</span>
+        <h2>
+          {{
+            editId
+              ? 'Edytuj wpis'
+              : view === 'budgets'
+                ? 'Zaplanuj limit'
+                : view === 'goals'
+                  ? 'Odkładaj na ważne'
+                  : view === 'recurring-payments'
+                    ? 'Ustaw regularność'
+                    : view === 'transfers'
+                      ? 'Przenieś środki'
+                      : 'Uporządkuj kategorie'
+          }}
+        </h2>
+      </div>
+      <form #entry="ngForm" (ngSubmit)="save()">
+        @switch (view) {
+          @case ('budgets') {
+            <p class="muted">
+              Limit dotyczy miesiąca {{ month }}. Wydatki pobieramy z Twojej historii.
+            </p>
+            <label
+              >Kategoria<select name="budgetCategory" [(ngModel)]="budget.categoryId" required>
+                <option [ngValue]="null" disabled>Wybierz kategorię</option>
+                @for (c of categories; track c.id) {
+                  <option [ngValue]="c.id">{{ c.name }}</option>
+                }
+              </select></label
+            >
+            <label
+              >Miesięczny limit (PLN)<input
+                name="limit"
+                type="number"
+                [(ngModel)]="budget.monthlyLimit"
+                required
+                min="0.01"
+                step="0.01"
+            /></label>
+          }
+          @case ('goals') {
+            <p class="muted">
+              Postęp celu zapisujesz ręcznie. Wpłata tutaj nie przenosi pieniędzy między kontami.
+            </p>
+            <label
+              >Nazwa celu<input
+                name="goalName"
+                [(ngModel)]="goal.name"
+                required
+                maxlength="100"
+                placeholder="Np. Poduszka finansowa"
+            /></label>
+            <label
+              >Kwota docelowa (PLN)<input
+                name="target"
+                type="number"
+                [(ngModel)]="goal.targetAmount"
+                required
+                min="0.01"
+                step="0.01"
+            /></label>
+            <label
+              >Już odłożone (PLN)<input
+                name="current"
+                type="number"
+                [(ngModel)]="goal.currentAmount"
+                required
+                min="0"
+                step="0.01"
+            /></label>
+            <label
+              >Termin — opcjonalnie<input name="goalDate" type="date" [(ngModel)]="goal.targetDate"
+            /></label>
+          }
+          @case ('recurring-payments') {
+            <p class="muted">
+              Dukat zapisze operację w historii i zmieni saldo w terminie. To ewidencja, bez
+              połączenia z bankiem. Zaległe terminy są sprawdzane co minutę.
+            </p>
+            <label
+              >Tytuł<input
+                name="title"
+                [(ngModel)]="payment.title"
+                required
+                maxlength="100"
+                placeholder="Np. Abonament"
+            /></label>
+            <div class="columns">
+              <label
+                >Kwota (PLN)<input
+                  name="paymentAmount"
+                  type="number"
+                  [(ngModel)]="payment.amount"
+                  required
+                  min="0.01"
+                  step="0.01" /></label
+              ><label
+                >Typ<select name="paymentType" [(ngModel)]="payment.type">
+                  <option value="EXPENSE">Wydatek</option>
+                  <option value="INCOME">Przychód</option>
+                </select></label
+              >
+            </div>
+            <label
+              >Konto<select name="paymentAccount" [(ngModel)]="payment.accountId" required>
+                <option [ngValue]="null" disabled>Wybierz konto</option>
+                @for (a of accounts; track a.id) {
+                  <option [ngValue]="a.id">{{ a.name }}</option>
+                }
+              </select></label
+            >
+            <label
+              >Kategoria<select name="paymentCategory" [(ngModel)]="payment.categoryId" required>
+                <option [ngValue]="null" disabled>Wybierz kategorię</option>
+                @for (c of categories; track c.id) {
+                  <option [ngValue]="c.id">{{ c.name }}</option>
+                }
+              </select></label
+            >
+            <div class="columns">
+              <label
+                >Pierwszy / następny termin<input
+                  name="due"
+                  type="date"
+                  [(ngModel)]="payment.nextDueDate"
+                  required /></label
+              ><label
+                >Częstotliwość<select name="frequency" [(ngModel)]="payment.frequency">
+                  <option value="WEEKLY">Co tydzień</option>
+                  <option value="MONTHLY">Co miesiąc</option>
+                  <option value="YEARLY">Co rok</option>
+                </select></label
+              >
+            </div>
+            <label class="checkbox"
+              ><input name="active" type="checkbox" [(ngModel)]="payment.active" /> Automatyczne
+              księgowanie aktywne</label
+            >
+          }
+          @case ('transfers') {
+            <p class="muted">
+              Przelew zapisuje dwie strony operacji. Nie zwiększa przychodów ani wydatków na
+              pulpicie.
+            </p>
+            <label
+              >Z konta<select name="source" [(ngModel)]="transfer.sourceAccountId" required>
+                <option [ngValue]="null" disabled>Wybierz konto</option>
+                @for (a of accounts; track a.id) {
+                  <option [ngValue]="a.id">{{ a.name }} · {{ a.balance | currency: 'PLN' }}</option>
+                }
+              </select></label
+            >
+            <label
+              >Na konto<select name="destination" [(ngModel)]="transfer.targetAccountId" required>
+                <option [ngValue]="null" disabled>Wybierz inne konto</option>
+                @for (a of accounts; track a.id) {
+                  <option [ngValue]="a.id" [disabled]="a.id === transfer.sourceAccountId">
+                    {{ a.name }}
+                  </option>
+                }
+              </select></label
+            >
+            <div class="columns">
+              <label
+                >Kwota (PLN)<input
+                  name="transferAmount"
+                  type="number"
+                  [(ngModel)]="transfer.amount"
+                  required
+                  min="0.01"
+                  step="0.01" /></label
+              ><label
+                >Data<input name="transferDate" type="date" [(ngModel)]="transfer.date" required
+              /></label>
+            </div>
+            <label
+              >Tytuł<input
+                name="description"
+                [(ngModel)]="transfer.description"
+                required
+                maxlength="255"
+                placeholder="Np. Na oszczędności"
+            /></label>
+            @if (accounts.length < 2) {
+              <p class="alert">Dodaj przynajmniej dwa aktywne konta w zakładce Moje konta.</p>
+            }
+          }
+          @case ('categories') {
+            <p class="muted">
+              Zmiana nazwy jest widoczna w historii. Wyłączenie kategorii zachowuje stare operacje i
+              ukrywa ją w nowych formularzach.
+            </p>
+            <label
+              >Nazwa kategorii<input
+                name="categoryName"
+                [(ngModel)]="category.name"
+                required
+                maxlength="100"
+                placeholder="Np. Edukacja"
+            /></label>
+            @if (editId) {
+              <p class="muted">Zapisanie nieaktywnej kategorii przywróci ją do użycia.</p>
+            }
+          }
+        }
+        <div class="actions">
+          <button
+            class="primary"
+            type="submit"
+            [disabled]="entry.invalid || saving() || (view === 'transfers' && accounts.length < 2)"
+          >
+            {{
+              saving()
+                ? 'Zapisywanie…'
+                : editId
+                  ? 'Zapisz zmiany'
+                  : view === 'transfers'
+                    ? 'Wykonaj przelew'
+                    : 'Dodaj'
+            }}
+          </button>
+          @if (editId) {
+            <button type="button" (click)="reset()" [disabled]="saving()">Anuluj edycję</button>
+          }
+        </div>
+      </form>
+    </section>
+    <section class="records" aria-live="polite">
+      @if (loading()) {
+        <p class="muted" role="status">Pobieranie danych…</p>
+      }
+      @switch (view) {
+        @case ('budgets') {
+          @for (b of budgets(); track b.id) {
+            <article class="panel record">
+              <div class="record-heading">
+                <h3>{{ b.category }}</h3>
+                <span class="badge" [class.over]="b.remaining < 0">{{
+                  b.remaining < 0 ? 'Limit przekroczony' : 'W planie'
+                }}</span>
+              </div>
+              <strong class="amount"
+                >{{ b.spent | currency: 'PLN' }}
+                <small>z {{ b.monthlyLimit | currency: 'PLN' }}</small></strong
+              >
+              <div class="track">
+                <span
+                  [style.width.%]="percent(b.spent, b.monthlyLimit)"
+                  [class.over]="b.remaining < 0"
+                ></span>
+              </div>
+              <p class="muted">
+                {{ b.remaining < 0 ? 'Przekroczenie' : 'Pozostało' }}:
+                {{ (b.remaining < 0 ? -b.remaining : b.remaining) | currency: 'PLN' }}
+              </p>
+              <div class="actions">
+                <button type="button" (click)="editBudget(b)" [disabled]="saving()">
+                  Edytuj limit</button
+                ><button type="button" (click)="remove(b.id)" [disabled]="saving()">
+                  {{ confirmDelete === b.id ? 'Potwierdź usunięcie' : 'Usuń' }}
+                </button>
+              </div>
+            </article>
+          } @empty {
+            <div class="panel empty">
+              <span>◇</span>
+              <h3>Każdy dobry plan ma swój początek</h3>
+              <p>Dodaj pierwszy limit na {{ month }}.</p>
+            </div>
+          }
+        }
+        @case ('goals') {
+          @for (g of goals(); track g.id) {
+            <article class="panel record">
+              <div class="record-heading">
+                <h3>{{ g.name }}</h3>
+                <span class="badge"
+                  >{{ percent(g.currentAmount, g.targetAmount).toFixed(0) }}%</span
+                >
+              </div>
+              <strong class="amount"
+                >{{ g.currentAmount | currency: 'PLN' }}
+                <small>z {{ g.targetAmount | currency: 'PLN' }}</small></strong
+              >
+              <div class="track">
+                <span [style.width.%]="percent(g.currentAmount, g.targetAmount)"></span>
+              </div>
+              @if (g.targetDate) {
+                <p class="muted">Cel na {{ g.targetDate | date: 'dd.MM.yyyy' }}</p>
+              }
+              <div class="contribution">
+                <label [for]="'contribute-' + g.id">Dodaj do postępu (PLN)</label>
+                <div class="actions">
+                  <input
+                    [id]="'contribute-' + g.id"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    [(ngModel)]="contribution[g.id]"
+                  /><button
+                    type="button"
+                    [disabled]="saving() || !contribution[g.id] || contribution[g.id]! <= 0"
+                    (click)="contribute(g)"
+                  >
+                    Zapisz wpłatę
+                  </button>
+                </div>
+              </div>
+              <div class="actions">
+                <button type="button" (click)="editGoal(g)" [disabled]="saving()">Edytuj</button
+                ><button type="button" (click)="remove(g.id)" [disabled]="saving()">
+                  {{ confirmDelete === g.id ? 'Potwierdź usunięcie' : 'Usuń' }}
+                </button>
+              </div>
+            </article>
+          } @empty {
+            <div class="panel empty">
+              <span>◇</span>
+              <h3>Zrób miejsce na ważne rzeczy</h3>
+              <p>Dodaj swój pierwszy cel oszczędnościowy.</p>
+            </div>
+          }
+        }
+        @case ('recurring-payments') {
+          @for (p of recurring(); track p.id) {
+            <article class="panel record">
+              <div class="record-heading">
+                <h3>{{ p.title }}</h3>
+                <span class="badge">{{ p.active ? 'Aktywna' : 'Wstrzymana' }}</span>
+              </div>
+              <strong class="amount"
+                >{{ p.amount | currency: 'PLN' }}
+                <small>{{ p.type === 'INCOME' ? 'Przychód' : 'Wydatek' }}</small></strong
+              >
+              <p>
+                {{ frequency(p.frequency) }} · następny termin
+                {{ p.nextDueDate | date: 'dd.MM.yyyy' }}
+              </p>
+              <p class="muted">{{ p.accountName }} · {{ p.category }}</p>
+              @if (p.lastError) {
+                <p class="alert error">{{ p.lastError }}</p>
+              }
+              <div class="actions">
+                <button type="button" (click)="editPayment(p)" [disabled]="saving()">Edytuj</button
+                ><button type="button" (click)="execute(p)" [disabled]="saving() || !p.active">
+                  Zaksięguj należne
+                </button>
+                @if (p.active) {
+                  <button type="button" (click)="remove(p.id)" [disabled]="saving()">
+                    {{ confirmDelete === p.id ? 'Potwierdź wstrzymanie' : 'Wstrzymaj' }}
+                  </button>
+                }
+              </div>
+            </article>
+          } @empty {
+            <div class="panel empty">
+              <span>◇</span>
+              <h3>Regularność daje spokój</h3>
+              <p>Zaplanuj pierwszy cykliczny wpis.</p>
+            </div>
+          }
+        }
+        @case ('transfers') {
+          @for (t of transfers(); track t.id) {
+            <article class="panel record">
+              <div class="record-heading">
+                <h3>{{ t.description }}</h3>
+                <span class="badge">Przelew</span>
+              </div>
+              <strong class="amount">{{ t.amount | currency: 'PLN' }}</strong>
+              <p>{{ t.sourceAccountName }} → {{ t.targetAccountName }}</p>
+              <p class="muted">{{ t.date | date: 'dd.MM.yyyy' }} · operacja #{{ t.id }}</p>
+            </article>
+          } @empty {
+            <div class="panel empty">
+              <span>◇</span>
+              <h3>Pieniądze we właściwym miejscu</h3>
+              <p>Tu pojawią się przelewy między Twoimi kontami.</p>
+            </div>
+          }
+        }
+        @case ('categories') {
+          @for (c of allCategories(); track c.id) {
+            <article class="panel record">
+              <div class="record-heading">
+                <h3>{{ c.name }}</h3>
+                <span class="badge">{{ c.active ? 'Aktywna' : 'Wyłączona' }}</span>
+              </div>
+              <div class="actions">
+                <button type="button" (click)="editCategory(c)" [disabled]="saving()">
+                  {{ c.active ? 'Zmień nazwę' : 'Przywróć / edytuj' }}
+                </button>
+                @if (c.active) {
+                  <button type="button" (click)="remove(c.id)" [disabled]="saving()">
+                    {{ confirmDelete === c.id ? 'Potwierdź wyłączenie' : 'Wyłącz' }}
+                  </button>
+                }
+              </div>
+            </article>
+          } @empty {
+            <div class="panel empty"><h3>Dodaj pierwszą kategorię</h3></div>
+          }
+        }
+      }
+    </section>
+  </div>
+</section>
