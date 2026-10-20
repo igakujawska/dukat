@@ -3,13 +3,57 @@ services:
     image: postgres:15
     container_name: dukat-db
     environment:
-      POSTGRES_USER: dukatuser
-      POSTGRES_PASSWORD: dukatpassword
-      POSTGRES_DB: dukat_db
+      POSTGRES_USER: ${DB_USER:?Uruchom scripts/Initialize-Dukat.ps1}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Ustaw DB_PASSWORD w .env}
+      POSTGRES_DB: ${DB_NAME:-dukat_db}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
     volumes:
       - dukat_postgres_data:/var/lib/postgresql/data
-
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+  backend:
+    build: .
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-dukat_db}
+      DB_USER: ${DB_USER:?Ustaw DB_USER w .env}
+      DB_PASSWORD: ${DB_PASSWORD:?Ustaw DB_PASSWORD w .env}
+      JWT_SECRET: ${JWT_SECRET:?Uruchom scripts/Initialize-Dukat.ps1}
+      DUKAT_BOOTSTRAP_USERNAME: ${DUKAT_BOOTSTRAP_USERNAME:-user}
+      DUKAT_BOOTSTRAP_PASSWORD: ${DUKAT_BOOTSTRAP_PASSWORD:?Ustaw haslo profilu w .env}
+      DUKAT_BOOTSTRAP_EMAIL: ${DUKAT_BOOTSTRAP_EMAIL:-user@dukat.local}
+      SERVER_PORT: 8082
+      TZ: Europe/Warsaw
+    ports:
+      - "127.0.0.1:${SERVER_PORT:-8082}:8082"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+  frontend:
+    build: ./dukat-ui
+    ports:
+      - "127.0.0.1:4200:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 volumes:
   dukat_postgres_data:
