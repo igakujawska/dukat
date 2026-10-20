@@ -12,11 +12,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // Wyłączamy CSRF na potrzeby API
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().authenticated() // Wymagaj logowania dla każdego zapytania
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll() // Dostęp do Swaggera bez logowania
+                        .anyRequest().authenticated()
                 )
-                .httpBasic(Customizer.withDefaults()); // Domyślne HTTP Basic (login: user + hasło z konsoli)
+                .httpBasic(Customizer.withDefaults());
 
         return http.build();
     }
