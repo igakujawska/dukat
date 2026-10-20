@@ -3,7 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { SessionService } from './session';
 
-export type TransactionType = 'INCOME' | 'EXPENSE';
+export type EntryType = 'INCOME' | 'EXPENSE';
+export type TransactionType = EntryType | 'TRANSFER_IN' | 'TRANSFER_OUT';
 
 // Interfejs opisuje JSON odpowiedzi API. Nie tworzy tabeli ani obiektu w bazie.
 export interface FinanceTransaction {
@@ -14,15 +15,18 @@ export interface FinanceTransaction {
   category: string;
   type: TransactionType;
   accountName: string;
+  accountId?: number;
+  categoryId?: number;
+  transferId?: number | null;
 }
 
 export interface CreateTransactionRequest {
   accountId: number;
   amount: number;
-  type: TransactionType;
+  type: EntryType;
   // Backend przyjmuje pole date, a w odpowiedzi zwraca transactionDate.
   date: string;
-  category: string;
+  categoryId: number;
   description: string;
 }
 

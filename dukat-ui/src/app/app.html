@@ -39,7 +39,7 @@
       <div class="login-box">
         <span class="login-symbol"><app-icon name="wallet" /></span>
         <span class="eyebrow">TWOJA PRZESTRZEŃ FINANSOWA</span>
-        <h2>Dobrze Cię widzieć<span>.</span></h2>
+        <h2>{{ registerMode ? 'Stwórz swoją przestrzeń' : 'Dobrze Cię widzieć' }}<span>.</span></h2>
         <p class="muted login-description">Zaloguj się i sprawdź, jak mają się Twoje pieniądze.</p>
         <form #loginForm="ngForm" (ngSubmit)="loadAccounts()" class="login-form">
           <label class="field"
@@ -47,9 +47,21 @@
               name="username"
               [(ngModel)]="username"
               required
+              [pattern]="registerMode ? '[a-zA-Z0-9._-]{3,40}' : '.*'"
               autocomplete="username"
               placeholder="Twój login"
           /></label>
+          @if (registerMode) {
+            <label class="field"
+              >E-mail<input
+                name="email"
+                type="email"
+                email
+                [(ngModel)]="email"
+                required
+                autocomplete="email"
+            /></label>
+          }
           <label class="field"
             >Hasło<span class="password-field"
               ><input
@@ -57,7 +69,8 @@
                 [type]="showPassword ? 'text' : 'password'"
                 [(ngModel)]="password"
                 required
-                autocomplete="current-password"
+                [minlength]="registerMode ? 10 : 1"
+                [attr.autocomplete]="registerMode ? 'new-password' : 'current-password'"
                 placeholder="Wpisz hasło" /><button
                 type="button"
                 class="icon-button"
@@ -77,19 +90,35 @@
             type="submit"
             [disabled]="loading() || loginForm.invalid"
           >
-            {{ loading() ? 'Łączenie…' : 'Zaloguj się' }}<app-icon name="arrow" />
+            {{ loading() ? 'Łączenie…' : registerMode ? 'Utwórz konto' : 'Zaloguj się'
+            }}<app-icon name="arrow" />
           </button>
         </form>
+        <button
+          type="button"
+          class="text-button"
+          [disabled]="loading()"
+          (click)="registerMode = !registerMode; errorMessage.set('')"
+        >
+          {{ registerMode ? 'Mam już konto — zaloguj się' : 'Pierwsza wizyta? Utwórz konto' }}
+        </button>
+        @if (registerMode) {
+          <p class="field-hint">
+            Login: 3–40 liter bez polskich znaków, cyfr lub . _ -. Hasło: minimum 10 znaków,
+            maksymalnie 72 bajty UTF-8.
+          </p>
+        }
         <div class="session-note">
           <app-icon name="lock" /><span
-            >Dane logowania pozostają wyłącznie w pamięci tej sesji.</span
+            >Token sesji pozostaje w pamięci karty. Hasło nie jest przechowywane w
+            przeglądarce.</span
           >
         </div>
         <details class="demo-help">
           <summary>Dostęp do wersji demonstracyjnej</summary>
           <p>
-            Login: <strong>user</strong>. Hasło znajdziesz w konsoli bieżącego uruchomienia
-            backendu, przy komunikacie „Using generated security password”.
+            Możesz utworzyć własny profil. Dla istniejącego profilu lokalnego użyj loginu i hasła
+            skonfigurowanych w pliku .env. Hasło nie zmienia się przy restarcie backendu.
           </p>
         </details>
       </div>
@@ -137,6 +166,16 @@
         >
           <app-icon name="arrows" /><span>Transakcje</span>
         </button>
+        @for (item of navigation; track item.id) {
+          <button
+            type="button"
+            [class.active]="view() === item.id"
+            [attr.aria-current]="view() === item.id ? 'page' : null"
+            (click)="navigate(item.id)"
+          >
+            <app-icon [name]="item.icon" /><span>{{ item.label }}</span>
+          </button>
+        }
       </nav>
       <div class="sidebar-note">
         <span class="sidebar-spark">◇</span>
@@ -164,9 +203,7 @@
             (click)="mobileMenu.set(true)"
           >
             <app-icon name="menu" /></button
-          ><span>Twoje finanse</span><app-icon name="chevron" /><strong>{{
-            view() === 'overview' ? 'Pulpit' : view() === 'accounts' ? 'Konta' : 'Transakcje'
-          }}</strong>
+          ><span>Twoje finanse</span><app-icon name="chevron" /><strong>{{ viewLabel() }}</strong>
         </div>
         <div class="topbar-right">
           <span class="live-badge"><span class="tiny-dot"></span> Dane na bieżąco</span
@@ -185,30 +222,16 @@
       <div class="page-heading">
         <div>
           <span class="eyebrow">DOBRZE MIEĆ PEŁNY OBRAZ</span>
-          <h1>
-            {{
-              view() === 'overview'
-                ? 'Twoje finanse, bez zgadywania.'
-                : view() === 'accounts'
-                  ? 'Każde konto. Jeden widok.'
-                  : 'Każda złotówka ma swoją historię.'
-            }}
-          </h1>
-          <p class="muted">
-            {{
-              view() === 'overview'
-                ? 'Sprawdź, co wpływa, co wypływa i ile zostaje na Twoich kontach.'
-                : view() === 'accounts'
-                  ? 'Zarządzaj kontami i miej saldo zawsze pod ręką.'
-                  : 'Przeglądaj i wyszukuj swoje przychody oraz wydatki.'
-            }}
-          </p>
+          <h1>{{ viewTitle() }}</h1>
+          <p class="muted">{{ viewDescription() }}</p>
         </div>
         <button
           class="button button-primary"
           type="button"
           (click)="view() === 'accounts' ? openAccount() : openTransaction()"
-          [disabled]="view() !== 'accounts' && !accounts().length"
+          [disabled]="
+            view() !== 'accounts' && (!activeAccounts().length || !activeCategories().length)
+          "
         >
           <app-icon name="plus" />{{ view() === 'accounts' ? 'Dodaj konto' : 'Nowa transakcja' }}
         </button>
@@ -233,7 +256,7 @@
         </div>
       }
       <div class="section-heading">
-        <h2>{{ view() === 'accounts' ? 'Przegląd kont' : 'Przegląd finansów' }}</h2>
+        <h2>{{ view() === 'overview' ? 'Przegląd finansów' : viewLabel() }}</h2>
         <label class="month-picker"
           ><app-icon name="calendar" /><input
             type="month"
@@ -242,40 +265,43 @@
             (ngModelChange)="changeMonth($event)"
         /></label>
       </div>
-      <section class="metrics" aria-label="Podsumowanie finansów">
-        <article class="metric balance-metric">
-          <div class="metric-label">
-            <span>Łączne saldo</span><span class="metric-icon"><app-icon name="wallet" /></span>
-          </div>
-          <strong>{{ totalBalance() | currency: 'PLN' : 'symbol' : '1.2-2' }}</strong>
-          <div class="metric-footer">
-            <span class="tiny-dot"></span> Suma sald · {{ accounts().length }}
-            {{ accounts().length === 1 ? 'konto' : 'kont' }}
-          </div>
-          <span class="metric-decoration" aria-hidden="true">◇</span>
-        </article>
-        <article class="metric">
-          <div class="metric-label">
-            <span>Przychody</span
-            ><span class="metric-icon income-icon"><app-icon name="down" /></span>
-          </div>
-          <strong>{{ income() | currency: 'PLN' : 'symbol' : '1.2-2' }}</strong>
-          <div class="metric-footer">
-            <span class="small-pill income-pill">+ {{ incomeCount() }}</span
-            ><span>{{ monthLabel() }}</span>
-          </div>
-        </article>
-        <article class="metric">
-          <div class="metric-label">
-            <span>Wydatki</span><span class="metric-icon expense-icon"><app-icon name="up" /></span>
-          </div>
-          <strong>{{ expenses() | currency: 'PLN' : 'symbol' : '1.2-2' }}</strong>
-          <div class="metric-footer">
-            <span class="small-pill expense-pill">− {{ expenseCount() }}</span
-            ><span>{{ monthLabel() }}</span>
-          </div>
-        </article>
-      </section>
+      @if (!planningView() || view() === 'budgets') {
+        <section class="metrics" aria-label="Podsumowanie finansów">
+          <article class="metric balance-metric">
+            <div class="metric-label">
+              <span>Łączne saldo</span><span class="metric-icon"><app-icon name="wallet" /></span>
+            </div>
+            <strong>{{ totalBalance() | currency: 'PLN' : 'symbol' : '1.2-2' }}</strong>
+            <div class="metric-footer">
+              <span class="tiny-dot"></span> Suma sald · {{ accounts().length }}
+              {{ accounts().length === 1 ? 'konto' : 'kont' }}
+            </div>
+            <span class="metric-decoration" aria-hidden="true">◇</span>
+          </article>
+          <article class="metric">
+            <div class="metric-label">
+              <span>Przychody</span
+              ><span class="metric-icon income-icon"><app-icon name="down" /></span>
+            </div>
+            <strong>{{ income() | currency: 'PLN' : 'symbol' : '1.2-2' }}</strong>
+            <div class="metric-footer">
+              <span class="small-pill income-pill">+ {{ incomeCount() }}</span
+              ><span>{{ monthLabel() }}</span>
+            </div>
+          </article>
+          <article class="metric">
+            <div class="metric-label">
+              <span>Wydatki</span
+              ><span class="metric-icon expense-icon"><app-icon name="up" /></span>
+            </div>
+            <strong>{{ expenses() | currency: 'PLN' : 'symbol' : '1.2-2' }}</strong>
+            <div class="metric-footer">
+              <span class="small-pill expense-pill">− {{ expenseCount() }}</span
+              ><span>{{ monthLabel() }}</span>
+            </div>
+          </article>
+        </section>
+      }
       @if (view() === 'overview') {
         <section class="overview-grid">
           <article class="panel cashflow-panel">
@@ -325,7 +351,7 @@
                 <button
                   class="text-button"
                   type="button"
-                  [disabled]="!accounts().length"
+                  [disabled]="!activeAccounts().length || !activeCategories().length"
                   (click)="openTransaction()"
                 >
                   Dodaj pierwszą transakcję <app-icon name="arrow" />
@@ -380,7 +406,21 @@
           [error]="forecastError()"
         />
       }
+      @if (planningView(); as plan) {
+        <app-planning
+          [view]="plan"
+          [revision]="revision()"
+          [accounts]="activeAccounts()"
+          [categories]="activeCategories()"
+          [month]="selectedMonth()"
+          (changed)="refresh()"
+          (expired)="signOut(); errorMessage.set('Sesja wygasła. Zaloguj się ponownie.')"
+        />
+      }
       @if (view() === 'accounts') {
+        <button type="button" class="text-button" (click)="toggleArchived()">
+          {{ includeArchived() ? 'Ukryj zamknięte konta' : 'Pokaż również zamknięte konta' }}
+        </button>
         <section class="account-cards" aria-label="Lista kont">
           @for (account of accounts(); track account.id; let index = $index) {
             <article class="account-card" [class.alternate-account]="index % 2 === 1">
@@ -389,6 +429,21 @@
                 ><span class="account-type">{{ account.accountType }}</span>
               </div>
               <h2>{{ account.name }}</h2>
+              @if (account.archived) {
+                <p class="muted">Konto zarchiwizowane</p>
+              }
+              <div class="account-actions">
+                <button type="button" class="text-button" (click)="openAccount(account)">
+                  Edytuj</button
+                ><button
+                  type="button"
+                  class="text-button"
+                  [disabled]="saving()"
+                  (click)="archiveAccount(account)"
+                >
+                  {{ account.archived ? 'Przywróć' : 'Zamknij konto' }}
+                </button>
+              </div>
               <span class="account-balance-label">Dostępne saldo</span
               ><strong class="account-card-balance">{{
                 account.balance | currency: 'PLN' : 'symbol' : '1.2-2'
@@ -404,7 +459,7 @@
           </button>
         </section>
       }
-      @if (view() !== 'accounts') {
+      @if (view() === 'overview' || view() === 'transactions') {
         <section class="panel transactions-panel">
           <div class="panel-heading">
             <div>
@@ -437,7 +492,9 @@
               >
                 <option value="ALL">Wszystkie typy</option>
                 <option value="INCOME">Przychody</option>
-                <option value="EXPENSE">Wydatki</option></select
+                <option value="EXPENSE">Wydatki</option>
+                <option value="TRANSFER_IN">Przelewy przychodzące</option>
+                <option value="TRANSFER_OUT">Przelewy wychodzące</option></select
               ><select
                 aria-label="Filtr konta"
                 [ngModel]="accountFilter()"
@@ -468,13 +525,11 @@
                       <div class="transaction-description">
                         <span
                           class="transaction-symbol"
-                          [class.is-income]="transaction.type === 'INCOME'"
-                          ><app-icon [name]="transaction.type === 'INCOME' ? 'down' : 'up'" /></span
+                          [class.is-income]="isIncoming(transaction.type)"
+                          ><app-icon [name]="isIncoming(transaction.type) ? 'down' : 'up'" /></span
                         ><span
                           ><strong>{{ transaction.description }}</strong
-                          ><small>{{
-                            transaction.type === 'INCOME' ? 'Przychód' : 'Wydatek'
-                          }}</small></span
+                          ><small>{{ typeLabel(transaction.type) }}</small></span
                         >
                       </div>
                     </td>
@@ -487,9 +542,9 @@
                     </td>
                     <td
                       class="amount-column transaction-amount"
-                      [class.positive-amount]="transaction.type === 'INCOME'"
+                      [class.positive-amount]="isIncoming(transaction.type)"
                     >
-                      {{ transaction.type === 'INCOME' ? '+' : '−'
+                      {{ isIncoming(transaction.type) ? '+' : '−'
                       }}{{ transaction.amount | currency: 'PLN' : 'symbol' : '1.2-2' }}
                     </td>
                   </tr>
@@ -567,7 +622,13 @@
         <div>
           <span class="eyebrow">MAŁY KROK, PEŁNIEJSZY OBRAZ</span>
           <h2 id="dialog-title">
-            {{ modal() === 'transaction' ? 'Nowa transakcja' : 'Dodaj konto' }}
+            {{
+              modal() === 'transaction'
+                ? 'Nowa transakcja'
+                : editingAccountId
+                  ? 'Edytuj konto'
+                  : 'Dodaj konto'
+            }}
           </h2>
         </div>
         <button
@@ -611,6 +672,7 @@
               >Kwota (PLN)<input
                 name="amount"
                 type="number"
+                #amountInput="ngModel"
                 [(ngModel)]="transactionDraft.amount"
                 required
                 min="0.01"
@@ -620,16 +682,19 @@
               >Data<input name="date" type="date" [(ngModel)]="transactionDraft.date" required
             /></label>
           </div>
+          @if (amountInput.invalid && amountInput.touched) {
+            <p class="alert error-alert" role="alert">Podaj dodatnią kwotę, np. 12,50 zł.</p>
+          }
           <label class="field"
             >Konto<select name="accountId" [(ngModel)]="transactionDraft.accountId" required>
-              @for (account of accounts(); track account.id) {
+              @for (account of activeAccounts(); track account.id) {
                 <option [ngValue]="account.id">{{ account.name }}</option>
               }
             </select></label
           ><label class="field"
-            >Kategoria<select name="category" [(ngModel)]="transactionDraft.category" required>
-              @for (category of categories; track category) {
-                <option [value]="category">{{ category }}</option>
+            >Kategoria<select name="categoryId" [(ngModel)]="transactionDraft.categoryId" required>
+              @for (category of activeCategories(); track category.id) {
+                <option [ngValue]="category.id">{{ category.name }}</option>
               }
             </select></label
           >
@@ -670,18 +735,23 @@
               <option>Oszczędności</option>
               <option>Gotówka</option>
             </select></label
-          ><label class="field"
-            >Saldo początkowe (PLN)<input
-              name="initialBalance"
-              type="number"
-              [(ngModel)]="accountDraft.balance"
-              required
-              min="0"
-              step="0.01"
-          /></label>
-          <p class="field-hint">
-            Saldo początkowe to stan konta przed pierwszą operacją w Dukacie.
-          </p>
+          >
+          @if (editingAccountId === null) {
+            <label class="field"
+              >Saldo początkowe (PLN)<input
+                name="initialBalance"
+                type="number"
+                [(ngModel)]="accountDraft.balance"
+                required
+                min="0"
+                step="0.01"
+            /></label>
+            <p class="field-hint">
+              Saldo początkowe to stan konta przed pierwszą operacją w Dukacie.
+            </p>
+          } @else {
+            <p class="field-hint">Saldo zmieniają wyłącznie operacje finansowe.</p>
+          }
           @if (formError()) {
             <p role="alert" class="alert error-alert">{{ formError() }}</p>
           }
@@ -698,7 +768,8 @@
               type="submit"
               [disabled]="saving() || accountForm.invalid"
             >
-              {{ saving() ? 'Zapisywanie…' : 'Utwórz konto' }}<app-icon name="check" />
+              {{ saving() ? 'Zapisywanie…' : editingAccountId ? 'Zapisz zmiany' : 'Utwórz konto'
+              }}<app-icon name="check" />
             </button>
           </div>
         </form>
