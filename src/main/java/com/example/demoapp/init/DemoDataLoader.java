@@ -1,41 +1,83 @@
 package com.example.demoapp.init;
 
-import com.example.demoapp.model.Account;
-import com.example.demoapp.model.Category;
-import com.example.demoapp.repository.AccountRepository;
-import com.example.demoapp.repository.CategoryRepository;
+import com.example.demoapp.model.*;
+import com.example.demoapp.repository.UserRepository;
+import com.example.demoapp.service.CategoryService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.util.List;
-
-@Component // Rejestracja beana jest konieczna, aby Spring wywołał CommandLineRunner po starcie.
+@Component
 public class DemoDataLoader implements CommandLineRunner {
 
-    private final CategoryRepository categoryRepository;
-    private final AccountRepository accountRepository;
+  private final UserRepository users;
+  private final PasswordEncoder passwords;
+  private final CategoryService categories;
+  private final JdbcTemplate jdbc;
 
-    public DemoDataLoader(CategoryRepository categoryRepository, AccountRepository accountRepository) {
-        this.categoryRepository = categoryRepository;
-        this.accountRepository = accountRepository;
+  @Value("${app.bootstrap.enabled:true}")
+  private boolean enabled;
+
+  @Value("${app.bootstrap.username:user}")
+  private String username;
+
+  @Value("${app.bootstrap.password:}")
+  private String password;
+
+  @Value("${app.bootstrap.email:user@dukat.local}")
+  private String email;
+
+  public DemoDataLoader(
+    UserRepository users,
+    PasswordEncoder passwords,
+    CategoryService categories,
+    JdbcTemplate jdbc
+  ) {
+    this.users = users;
+    this.passwords = passwords;
+    this.categories = categories;
+    this.jdbc = jdbc;
+  }
+
+  @Override
+  @Transactional
+  public void run(String... args) {
+    if (!enabled) return;
+    if (password.length() < 10) throw new IllegalArgumentException(
+      "Ustaw DUKAT_BOOTSTRAP_PASSWORD (minimum 10 znaków)"
+    );
+    User owner = users
+      .findByUsernameIgnoreCase(username)
+      .orElseGet(() ->
+        users.saveAndFlush(
+          new User(username, passwords.encode(password), email, Role.USER)
+        )
+      );
+    // Jednorazowe przeniesienie zachowanych danych; nowo rejestrowane osoby ich nie zobaczą.
+    users.findByUsernameIgnoreCase("__legacy_owner__").ifPresent(legacy -> {
+      for (String table : java.util.List.of(
+        "accounts",
+        "categories",
+        "budgets",
+        "goals",
+        "recurring_payments",
+        "households"
+      ))
+        jdbc.update(
+          "UPDATE " + table + " SET owner_id=? WHERE owner_id=?",
+          owner.getId(),
+          legacy.getId()
+        );
+    });
+    // Stary endpoint zapisywał hasła jawnie. Aktualizujemy ich format przed udostępnieniem logowania.
+    for (User user : users.findAll()) {
+      if (
+        user.isEnabled() && !user.getPassword().startsWith("$2")
+      ) user.setPassword(passwords.encode(user.getPassword()));
     }
-
-    @Override // Kompilator sprawdza implementację run() z interfejsu CommandLineRunner.
-    public void run(String... args) {
-        if (categoryRepository.count() == 0) {
-            categoryRepository.saveAll(List.of(
-                    new Category("Jedzenie i Restauracje"),
-                    new Category("Mieszkanie i Rachunki"),
-                    new Category("Transport"),
-                    new Category("Rozrywka"),
-                    new Category("Wynagrodzenie")
-            ));
-        }
-
-        // Dane startowe powstają tylko w pustej tabeli; restart nie resetuje istniejących sald.
-        if (accountRepository.count() == 0) {
-            accountRepository.save(new Account("Konto Główne", "PLN", new BigDecimal("5000.00")));
-        }
-    }
+    categories.seed(owner);
+  }
 }

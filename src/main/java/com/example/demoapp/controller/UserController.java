@@ -1,30 +1,22 @@
 package com.example.demoapp.controller;
 
-import com.example.demoapp.model.User;
-import com.example.demoapp.repository.UserRepository;
-import org.springframework.http.ResponseEntity;
+import com.example.demoapp.dto.auth.AuthDtos.UserResponse;
+import com.example.demoapp.service.*;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
+// Zwracamy DTO, nigdy encję z hasłem (także haszowane hasło nie powinno opuszczać serwera).
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = "*")
 public class UserController {
 
-    private final UserRepository userRepository;
+  private final CurrentUser current;
 
-    public UserController(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+  public UserController(CurrentUser current) {
+    this.current = current;
+  }
 
-    @GetMapping
-    public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userRepository.findAll());
-    }
-
-    @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
-        return ResponseEntity.ok(userRepository.save(user));
-    }
+  @GetMapping("/me")
+  public UserResponse me() {
+    return AuthService.profile(current.required());
+  }
 }

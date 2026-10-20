@@ -1,33 +1,67 @@
 package com.example.demoapp.config;
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.web.AuthenticationEntryPoint;
+import com.example.demoapp.repository.UserRepository;
+import org.springframework.context.annotation.*;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.*;
+import org.springframework.security.web.*;
 
-@Configuration // Klasa dostarczająca konfigurację kontenera Springa.
+@Configuration
 public class SecurityConfig {
 
-    @Bean // Zwrócony SecurityFilterChain staje się obiektem zarządzanym przez Spring.
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // 401 z JSON-em obsługuje formularz Angulara. Brak WWW-Authenticate zapobiega
-        // drugiemu oknu logowania przeglądarki; API nadal wymaga poprawnego Basic Auth.
-        AuthenticationEntryPoint apiLoginRequired = (request, response, exception) -> {
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"message\":\"Nieprawidłowy login lub hasło.\"}");
-        };
-        http
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll() // Dostęp do Swaggera bez logowania
-                        .anyRequest().authenticated()
-                )
-                // Frontend przesyła nagłówek Authorization; sam dostęp do Swaggera nie loguje do API.
-                .httpBasic(basic -> basic.authenticationEntryPoint(apiLoginRequired))
-                .exceptionHandling(errors -> errors.authenticationEntryPoint(apiLoginRequired));
+  @Bean
+  public SecurityFilterChain securityFilterChain(HttpSecurity http)
+    throws Exception {
+    AuthenticationEntryPoint unauthorized = (request, response, error) -> {
+      response.setStatus(401);
+      response.setContentType("application/json;charset=UTF-8");
+      response.getWriter().write("{\"message\":\"Zaloguj się ponownie.\"}");
+    };
+    // JWT trafia w Authorization, nie w cookie. Serwer nie tworzy sesji HTTP.
+    http
+      .csrf(csrf -> csrf.disable())
+      .sessionManagement(s ->
+        s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+      )
+      .authorizeHttpRequests(auth ->
+        auth
+          .requestMatchers(
+            "/api/auth/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/v3/api-docs/**",
+            "/actuator/health"
+          )
+          .permitAll()
+          .anyRequest()
+          .authenticated()
+      )
+      .oauth2ResourceServer(oauth ->
+        oauth.jwt(jwt -> {}).authenticationEntryPoint(unauthorized)
+      )
+      .exceptionHandling(errors ->
+        errors.authenticationEntryPoint(unauthorized)
+      );
+    return http.build();
+  }
 
-        return http.build();
-    }
+  @Bean
+  public UserDetailsService userDetailsService(UserRepository users) {
+    return username -> {
+      var user = users
+        .findByUsernameIgnoreCase(username)
+        .filter(u -> u.isEnabled())
+        .orElseThrow(() ->
+          new UsernameNotFoundException("Nieprawidłowe dane logowania")
+        );
+      return org.springframework.security.core.userdetails.User.withUsername(
+        user.getUsername()
+      )
+        .password(user.getPassword())
+        .roles(user.getRole().name())
+        .build();
+    };
+  }
 }
