@@ -1,0 +1,1115 @@
+DUKAT — NOTATKA DO NAUKI NA PODSTAWIE MOJEGO PROJEKTU
+Stan kodu: 20 października 2026 r.
+Zakres: cały własny kod Java w src/main i src/test, bez wygenerowanego target
+i bez kodu bibliotek. Na końcu jest automatyczny indeks wszystkich adnotacji
+z nazwami plików i numerami linii.
+
+W kodzie jest 28 różnych nazw adnotacji. Przed dodaniem testów regresji Swaggera
+było ich 27. Dodana @Value występuje wyłącznie w testach.
+
+SPIS TREŚCI
+1. Co oznacza błąd z logu i jak sprawdzić poprawkę
+2. Jak działa cała aplikacja i skąd Spring bierze obiekty
+3. Wszystkie adnotacje: znaczenie i zastosowanie u mnie
+4. Klasa, interfejs, enum i record — dlaczego mam różne typy
+5. Model, repozytorium, serwis, kontroler i DTO — dlaczego są oddzielne
+6. Mapa wszystkich plików Java i ich rzeczywiste zadania
+7. Dwa przepływy krok po kroku: wydatek i przelew
+8. Co jest gotowe, a co na razie tylko zaplanowane
+9. Narzędzia, konfiguracja i krótkie ćwiczenia
+10. Dokumentacja źródłowa
+11. Automatyczny indeks wystąpień adnotacji
+
+
+1. CO OZNACZA BŁĄD Z LOGU I JAK SPRAWDZIĆ POPRAWKĘ
+=================================================
+
+W załączonym logu są dwa różne wydarzenia:
+
+A. Poprawne uruchomienie backendu:
+   "Tomcat started on port 8082"
+   "Started DemoappApplication"
+   HikariPool dodał połączenie PostgreSQL.
+
+   Wniosek: serwer wystartował i połączył się z bazą. Nie zatrzymał się
+   podczas uruchamiania.
+
+B. Błąd podczas obsługi późniejszego żądania:
+   NoSuchMethodError:
+   ControllerAdviceBean.<init>(java.lang.Object)
+
+   To błąd zgodności binarnej: biblioteka próbuje wywołać konstruktor,
+   którego nie ma w załadowanej wersji innej biblioteki.
+   Nie oznacza to, że mam napisać taki konstruktor w swoim kontrolerze.
+
+W pom.xml były Spring Boot 4.1.1 i springdoc-openapi 2.3.0.
+Springdoc z serii 2.x jest przeznaczony dla Spring Boot 3.
+Dokumentacja springdoc wskazuje serię 3.x dla Spring Boot 4.
+Zależność springdoc-openapi-starter-webmvc-ui została zmieniona na 3.1.1.
+
+Dokumentacja: https://springdoc.org/#what-is-the-compatibility-matrix-of-springdoc-openapi-with-spring-boot
+
+Sprawdzenie poprawki:
+- Maven zakończył testy wynikiem BUILD SUCCESS.
+- Dwa testy przeszły: dokument OpenAPI odpowiada HTTP 200 i zawiera
+  /api/transactions; strona Swagger UI odpowiada HTTP 200 bez logowania.
+- Testy uruchamiają prawdziwy serwer na wolnym porcie i osobną bazę H2
+  w pamięci. Nie używają danych z mojego PostgreSQL.
+- Te testy sprawdzają naprawiony problem dokumentacji. Nie potwierdzają
+  jeszcze poprawności wszystkich operacji finansowych ani frontendu.
+
+Po zmianie pom.xml w IntelliJ:
+1) W oknie Maven wybieram Reload All Maven Projects / synchronizację.
+2) Zatrzymuję i uruchamiam ponownie DemoappApplication.
+3) Otwieram http://localhost:8082/swagger-ui/index.html
+4) Mogę też sprawdzić http://localhost:8082/v3/api-docs
+
+Samo przeładowanie strony nie zastąpi restartu procesu ze starymi JAR-ami.
+Backend nie ma obecnie własnej strony startowej pod adresem /.
+Swagger jest interfejsem dokumentacji API; frontend Angular to osobna część.
+
+Adresy API zaczynające się od /api/ wymagają teraz HTTP Basic.
+Domyślny login to user, a hasło trzeba odczytać z AKTUALNEGO uruchomienia
+aplikacji. Nie zapisuję hasła z logu w notatce, bo zmienia się po restarcie.
+W Postmanie wybieram Authorization -> Basic Auth. W Swaggerze przeglądarka
+może poprosić o Basic Auth przy wywołaniu chronionej operacji.
+Konfiguracja OpenAPI nie definiuje jeszcze schematu zabezpieczeń dla
+przycisku Authorize. Dostęp do dokumentacji i dostęp do operacji API
+to dwie oddzielne kwestie.
+
+Pozostałe komunikaty z załączonego logu:
+- PostgreSQLDialect nie musi być wpisany ręcznie: ostrzeżenie o zbędnym
+  ustawieniu, nie przyczyna NoSuchMethodError.
+- open-in-view: informacja, że sesja dostępu do danych może pozostać
+  dostępna przy tworzeniu odpowiedzi HTTP; wymaga świadomej decyzji.
+- Wygenerowane hasło: działa domyślny użytkownik Spring Security.
+- Brak templates/: w załączonym uruchomieniu Thymeleaf był w zależnościach,
+  mimo braku szablonów. Nieużywane zależności Thymeleaf zostały później
+  usunięte podczas porządkowania pom.xml.
+- Brak JTA: nie oznacza braku zwykłych lokalnych transakcji bazodanowych.
+  Obecny projekt korzysta z jednej bazy i transakcji obsługiwanych przez Spring.
+
+
+2. JAK DZIAŁA CAŁA APLIKACJA I SKĄD SPRING BIERZE OBIEKTY
+========================================================
+
+Docelowy przepływ:
+
+Angular lub Postman
+    -> HTTP: metoda + adres + ewentualny JSON
+    -> Spring Security: sprawdzenie dostępu
+    -> Controller: odebranie żądania
+    -> Service: reguły biznesowe
+    -> Repository: dostęp do danych
+    -> JPA/Hibernate: mapowanie obiektów i zapytania SQL
+    -> PostgreSQL: trwały zapis
+
+Odpowiedź wraca przez backend jako HTTP, najczęściej z JSON.
+GlobalExceptionHandler może przygotować odpowiedź dla błędu kontrolera.
+
+API to zestaw uzgodnionych sposobów komunikacji, np.:
+GET /api/accounts — pobierz konta.
+POST /api/transactions — utwórz operację finansową.
+GET /api/dashboard/summary — pobierz podsumowanie.
+
+Spring Boot uruchamia i konfiguruje aplikację. Spring zarządza obiektami,
+które zarejestrowano w jego kontenerze. Taki obiekt nazywam beanem.
+Kontener Springa to mechanizm zarządzania obiektami w Javie; kontener
+Dockera to odizolowane środowisko uruchomieniowe. To różne pojęcia.
+
+Przykład z mojego projektu:
+
+public TransactionController(TransactionService transactionService) {
+    this.transactionService = transactionService;
+}
+
+Ten konstruktor mówi: aby powstał kontroler, potrzebny jest serwis.
+Spring znajduje bean TransactionService i przekazuje go do konstruktora.
+Serwis dostaje w podobny sposób repozytoria. To wstrzykiwanie zależności.
+Przy pojedynczym konstruktorze nie muszę dopisywać @Autowired.
+W obecnym kodzie @Autowired nie występuje.
+
+private final oznacza, że pole jest prywatne, a przypisanej referencji
+nie mogę później podmienić. final nie oznacza, że wskazany obiekt
+lub zawartość bazy są niezmienne.
+
+Samo umieszczenie klasy w pakiecie service/config/init jej nie uruchamia.
+Potrzebna jest rejestracja, np. stereotyp komponentu lub metoda @Bean,
+oraz odpowiedni mechanizm, który wywoła jej metody.
+
+Encja JPA i bean Springa to różne role. Account jest encją zarządzaną
+w kontekście trwałości przez JPA, a nie automatycznie singletonem Springa.
+
+
+3. WSZYSTKIE ADNOTACJE: ZNACZENIE I ZASTOSOWANIE U MNIE
+======================================================
+
+Adnotacja to metadane oznaczone znakiem @. Określa informacje dla
+kompilatora, Springa, JPA lub narzędzia testowego. Jej efekt zależy
+od mechanizmu, który ją odczytuje. Nazwy i dokładne miejsca użycia
+w moim kodzie są dodatkowo zebrane w indeksie na końcu.
+
+START APLIKACJI I REJESTRACJA OBIEKTÓW
+
+01. @SpringBootApplication
+    Pakiet: org.springframework.boot.autoconfigure
+    U mnie: DemoappApplication.
+    Oznacza główną konfigurację aplikacji Boot, włącza automatyczne
+    konfigurowanie oraz domyślne wyszukiwanie komponentów w jej pakiecie
+    i podpakietach. main wywołuje SpringApplication.run(...).
+    Dzięki położeniu klasy w com.example.demoapp Spring widzi m.in.
+    controller, service, config i repository pod tym pakietem.
+    Adnotacja nie dopisuje za mnie reguł biznesowych ani frontendu.
+
+02. @Component
+    Pakiet: org.springframework.stereotype
+    U mnie: AuditLoggingAspect.
+    Ogólny znacznik klasy, której obiekt ma zarejestrować Spring
+    podczas skanowania. Obecna klasa audytu jest pusta, więc jej
+    zarejestrowanie nie powoduje jeszcze logowania operacji.
+    Nazwa z końcówką Aspect nie zastępuje implementacji aspektu.
+
+03. @Service
+    Pakiet: org.springframework.stereotype
+    U mnie: dziewięć klas w service.
+    Rejestruje komponent i zaznacza rolę warstwy biznesowej.
+    TransactionService zmienia saldo, TransferService koordynuje przelew,
+    a pozostałe serwisy mają zakres opisany w mapie plików.
+    @Service nie tworzy automatycznie endpointu ani transakcji bazodanowej.
+
+04. @Repository
+    Pakiet: org.springframework.stereotype
+    U mnie: osiem interfejsów w repository.
+    Oznacza warstwę dostępu do danych. Implementacje moich interfejsów
+    powstają dzięki Spring Data JPA i dziedziczeniu po JpaRepository.
+    Nie są tworzone przez sam napis @Repository.
+    Przy wykrywanych interfejsach Spring Data ta adnotacja zwykle
+    nie jest konieczna; u mnie jawnie dokumentuje ich rolę.
+
+05. @Configuration
+    Pakiet: org.springframework.context.annotation
+    U mnie: SecurityConfig, OpenApiConfig, SchedulingConfig,
+    JwtConfig i RestClientConfig.
+    Oznacza klasę konfiguracji Springa. Może zawierać metody @Bean
+    lub włączać funkcje innymi adnotacjami.
+    Pusta konfiguracja JWT nie oznacza działającego logowania tokenami.
+
+06. @Bean
+    Pakiet: org.springframework.context.annotation
+    U mnie: OpenApiConfig.customOpenAPI i SecurityConfig.securityFilterChain.
+    Wynik metody staje się obiektem zarządzanym przez Spring.
+    Pierwsza metoda tworzy opis API, druga zestaw filtrów zabezpieczeń.
+    Używam tego, gdy chcę samodzielnie skonstruować i skonfigurować obiekt,
+    często z klasy należącej do biblioteki.
+
+07. @EnableScheduling
+    Pakiet: org.springframework.scheduling.annotation
+    U mnie: SchedulingConfig.
+    Włącza obsługę metod zaplanowanych do wykonania przez Spring.
+    W kodzie nie ma jeszcze metod @Scheduled, więc sama ta konfiguracja
+    nie nalicza płatności i nie wykonuje miesięcznych zadań.
+
+OBSŁUGA HTTP
+
+08. @RestController
+    Pakiet: org.springframework.web.bind.annotation
+    U mnie: wszystkie dziewięć kontrolerów.
+    Rejestruje kontroler, którego wyniki metod są przekazywane do ciała
+    odpowiedzi HTTP. Obiekty są najczęściej serializowane do JSON.
+    U mnie ResponseEntity pozwala dodatkowo ustawić status odpowiedzi.
+    Kontroler REST nie tworzy sam widoku HTML aplikacji Angular.
+
+09. @RequestMapping
+    Pakiet: org.springframework.web.bind.annotation
+    U mnie: na klasach kontrolerów, np. /api/transactions.
+    Ustala bazowy adres obsługiwanych żądań. Łączy się z adresem metody.
+    DashboardController: /api/dashboard + /summary
+    daje GET /api/dashboard/summary.
+
+10. @GetMapping
+    Pakiet: org.springframework.web.bind.annotation
+    U mnie: metody pobierania danych w ośmiu kontrolerach.
+    Przypisuje metodę Java do żądania HTTP GET.
+    @GetMapping bez dodatkowej ścieżki korzysta z adresu klasy.
+    Moje GET-y odczytują dane; TransferController nie ma GET-a.
+
+11. @PostMapping
+    Pakiet: org.springframework.web.bind.annotation
+    U mnie: siedem metod tworzenia danych lub wykonania przelewu.
+    Przypisuje metodę do HTTP POST. Oznaczenie POST nie zapisuje danych
+    samo w sobie: zapis robi kod serwisu lub repozytorium.
+    Status 201 jest u mnie ustawiany przez HttpStatus.CREATED;
+    część POST-ów, np. przelew i użytkownik, zwraca obecnie 200.
+
+12. @RequestBody
+    Pakiet: org.springframework.web.bind.annotation
+    U mnie: parametry siedmiu metod POST.
+    Poleca odczytać treść żądania i zamienić ją na obiekt Java,
+    np. JSON na CreateTransactionRequest.
+    Nie uruchamia samo walidacji typu „kwota większa od zera”.
+    Obecne DTO nie mają adnotacji ograniczeń, a parametry nie mają @Valid.
+    Dodany starter-validation dopiero dostarcza narzędzia do walidacji.
+
+13. @CrossOrigin(origins = "*")
+    Pakiet: org.springframework.web.bind.annotation
+    U mnie: wszystkie dziewięć kontrolerów.
+    Określa reguły CORS używane przez przeglądarkę przy komunikacji
+    z innego originu, czyli kombinacji protokołu, hosta i portu.
+    Gwiazdka oznacza wszystkie originy, a nie tylko lokalnego Angulara.
+    CORS nie zastępuje logowania. Współpraca z filtrami Spring Security
+    i żądaniami preflight wymaga odpowiedniej konfiguracji CORS także
+    w zabezpieczeniach. Postman nie egzekwuje CORS jak przeglądarka.
+
+14. @RestControllerAdvice
+    Pakiet: org.springframework.web.bind.annotation
+    U mnie: GlobalExceptionHandler.
+    Rejestruje wspólną obsługę wyjątków dla kontrolerów REST.
+    Dzięki temu nie powtarzam tej samej obsługi błędów w każdym endpointcie.
+    Nie przechwytuje automatycznie każdego błędu z każdego wątku aplikacji,
+    a błędy w filtrach zabezpieczeń mogą być obsługiwane wcześniej.
+
+15. @ExceptionHandler
+    Pakiet: org.springframework.web.bind.annotation
+    U mnie: trzy metody GlobalExceptionHandler.
+    Wskazuje typ wyjątku, dla którego metoda przygotowuje odpowiedź.
+    IllegalArgumentException -> u mnie HTTP 400 i komunikat.
+    IllegalStateException -> u mnie HTTP 400 i komunikat.
+    Exception -> u mnie HTTP 500 i ogólny tekst z wiadomością wyjątku.
+    Konkretne statusy wynikają z mojego kodu ResponseEntity.
+    Adnotacja nie ustala ich automatycznie na 400.
+
+MAPOWANIE BAZY DANYCH — JAKARTA PERSISTENCE / JPA
+
+16. @Entity
+    Pakiet: jakarta.persistence
+    U mnie: dziewięć klas modelu: Account, Budget, Category, Goal,
+    Household, Membership, RecurringPayment, Transaction i User.
+    Deklaruje encję, której stan może być mapowany do bazy przez JPA.
+    Samo @Entity nie jest poleceniem CREATE TABLE.
+    U mnie tworzenie/aktualizowanie schematu włącza ddl-auto=update.
+    Encje potrzebują m.in. identyfikatora i konstruktora bez argumentów.
+
+17. @Table(name = "...")
+    Pakiet: jakarta.persistence
+    U mnie: każda z dziewięciu encji, np. Account -> accounts.
+    Podaje nazwę tabeli mapowanej przez encję. Nazwa klasy Java
+    i nazwa tabeli SQL mogą się różnić.
+    Nie jest adnotacją uprawnień ani instrukcją pobrania wszystkich wierszy.
+
+18. @Id
+    Pakiet: jakarta.persistence
+    U mnie: pole id w każdej z dziewięciu encji.
+    Oznacza identyfikator encji, odpowiadający kluczowi głównemu.
+    Long w JpaRepository<Account, Long> musi pasować do typu tego id.
+    To, że pole w Membership nazywa się userId, nie robi z niego @Id
+    ani relacji @ManyToOne: jego znaczenie wynika z osobnego mapowania.
+
+19. @GeneratedValue(strategy = GenerationType.IDENTITY)
+    Pakiet: jakarta.persistence
+    U mnie: obok @Id w dziewięciu encjach.
+    Określa generowanie identyfikatora przy zapisie. Strategia IDENTITY
+    korzysta z mechanizmu generowania wartości przez bazę.
+    Nie muszę sama wyliczać kolejnego id przed utworzeniem konta.
+    Wartości id nie muszą być ciągłe, bez luk.
+
+20. @Column
+    Pakiet: jakarta.persistence
+    U mnie: 24 pola encji, z parametrami nullable i czasem unique.
+    nullable=false opisuje kolumnę, która nie dopuszcza SQL NULL.
+    unique=true opisuje wymaganie unikalności, np. nazwy konta lub emaila.
+    To mapowanie i ograniczenia bazy przy generowaniu schematu.
+    Nie zastępuje walidacji formularza ani żądania HTTP.
+    Pusty napis "" nie jest tym samym co null. Dodatnia kwota
+    i poprawny format emaila też nie wynikają z nullable=false.
+    Pole bez @Column nadal może być zapisywane według domyślnych reguł,
+    np. Goal.targetDate.
+
+21. @Enumerated(EnumType.STRING)
+    Pakiet: jakarta.persistence
+    U mnie: Transaction.type i User.role.
+    Zapisuje nazwę stałej enuma, np. EXPENSE albo ADMIN,
+    zamiast jej numeru porządkowego. Przestawienie kolejności stałych
+    nie zmienia wtedy znaczenia istniejących zapisów.
+    Zmiana nazwy stałej wymaga uwzględnienia zapisanych danych.
+    EnumType.STRING jest argumentem adnotacji, a nie osobną adnotacją.
+
+22. @ManyToOne(fetch = FetchType.LAZY)
+    Pakiet: jakarta.persistence
+    U mnie: Transaction.account.
+    Wiele transakcji może wskazywać jedno konto. W Javie trzymam
+    referencję do Account; w tabeli transactions jest odwołanie account_id.
+    LAZY oznacza żądanie odroczonego pobrania powiązanego obiektu;
+    JPA traktuje ten tryb jako wskazówkę. Dostęp do account.getName()
+    może spowodować dodatkowy odczyt danych.
+    Poza aktywnym kontekstem trwałości odczyt niezaładowanej relacji
+    może nie zadziałać. Nie jest to blokada współbieżnych zapisów.
+
+23. @JoinColumn(name = "account_id", nullable = false)
+    Pakiet: jakarta.persistence
+    U mnie: również Transaction.account.
+    Wskazuje kolumnę powiązania w tabeli transactions.
+    account_id przechowuje identyfikator powiązanego konta.
+    Wymaganie nullable=false mówi, że operacja musi mieć konto.
+    Relacja jest opisana po stronie Transaction; nie trzeba mieć
+    dodatkowo listy transakcji w Account, żeby ten kierunek działał.
+
+TRANSAKCJE BAZODANOWE
+
+24. @Transactional
+    Pakiet: org.springframework.transaction.annotation
+    U mnie: TransactionService.createTransaction i TransferService.executeTransfer.
+    Wywołanie przez proxy Springa obejmuje metodę transakcją bazodanową:
+    zmiany mogą zostać zatwierdzone razem albo razem wycofane.
+    Domyślnie niewychwycone RuntimeException i Error powodują rollback;
+    wyjątki checked nie zawsze, bez dodatkowej konfiguracji.
+    U mnie ma to objąć np. odjęcie pieniędzy z jednego konta i dodanie
+    na drugie. Wywołanie metody bezpośrednio z tej samej instancji
+    zwykle omija proxy. Sama adnotacja nie rozwiązuje konfliktów
+    równoczesnej zmiany salda — potrzebna byłaby odpowiednia strategia.
+    Finansowa Transaction jest danymi o operacji. Transakcja bazodanowa
+    jest mechanizmem spójnego wykonania zapisów. To odrębne pojęcia.
+
+KOMPILATOR I TESTY
+
+25. @Override
+    Pakiet: java.lang
+    U mnie: DemoDataLoader.run.
+    Każe kompilatorowi sprawdzić, czy metoda rzeczywiście implementuje
+    lub nadpisuje metodę typu nadrzędnego. Tutaj chodzi o run
+    z interfejsu CommandLineRunner.
+    Nie rejestruje klasy jako beana i nie uruchamia jej samodzielnie.
+
+26. @SpringBootTest
+    Pakiet: org.springframework.boot.test.context
+    U mnie: DemoappApplicationTests.
+    Uruchamia kontekst Spring Boot na potrzeby testów.
+    Po poprawce webEnvironment=RANDOM_PORT uruchamia serwer na wolnym
+    porcie, a properties nadpisują ustawienia bazy na testową H2.
+    create-drop dotyczy tylko tej bazy testowej w pamięci.
+    Nie zmieniłam ddl-auto=update dla zwykłego PostgreSQL aplikacji.
+
+27. @Test
+    Pakiet: org.junit.jupiter.api
+    U mnie: dwie metody DemoappApplicationTests.
+    Oznacza metodę wykonywaną przez JUnit jako test.
+    Asercje sprawdzają status HTTP i zawartość odpowiedzi.
+    Pusty test kontekstu został zastąpiony sprawdzeniami problemu Swaggera.
+
+28. @Value("${local.server.port}")
+    Pakiet: org.springframework.beans.factory.annotation
+    U mnie: pole port w DemoappApplicationTests, dodane przy poprawce.
+    Spring wpisuje do pola wartość właściwości z konfiguracji środowiska.
+    Tu jest to faktyczny port serwera testowego. Nie wpisuję na stałe
+    8082, więc test może działać obok aplikacji uruchomionej w IntelliJ.
+
+Nie są adnotacjami: class, interface, enum, record, extends, implements,
+private, final, static, public, new, throws, ResponseEntity, JpaRepository,
+GenerationType.IDENTITY, FetchType.LAZY ani EnumType.STRING.
+Nie ma też w moim kodzie @Valid, @Scheduled, @Aspect czy @Autowired.
+Nazwy te mogą pojawiać się w wyjaśnieniach, ale nie należą do indeksu
+adnotacji faktycznie użytych w źródłach.
+
+
+4. KLASA, INTERFEJS, ENUM I RECORD — DLACZEGO MAM RÓŻNE TYPY
+==========================================================
+
+KLASA — dane i/lub zachowanie konkretnego rodzaju obiektu.
+Account ma stan: nazwę, saldo i typ konta. TransactionService ma metody
+wykonujące operacje. To oba rodzaje klas, ale o różnych zadaniach.
+Klasa jest definicją typu; account znalezione w bazie to konkretna instancja.
+Moje encje są klasami, bo opisują obiekty z tożsamością, stanem i mapowaniem JPA.
+Serwisy i kontrolery są klasami, bo zawierają wykonywalną implementację.
+
+INTERFEJS — umowa określająca, z jakich operacji można korzystać.
+
+public interface AccountRepository extends JpaRepository<Account, Long>
+
+Oznacza: repozytorium pracuje z Account, którego id ma typ Long,
+i udostępnia m.in. findAll(), findById(), save(), count().
+Nie piszę sama implementacji metod CRUD: obiekt repozytorium dostarcza
+Spring Data. Dla findByName(String name) Spring Data interpretuje nazwę
+metody i buduje odpowiednie zapytanie.
+findByAccountId(Long accountId) w TransactionRepository odnosi się
+do identyfikatora powiązanego pola account.
+
+Repozytorium nie jest encją i nie jest pojedynczym wierszem w bazie.
+Używa encji do dostępu do wielu wierszy. extends rozszerza umowę
+JpaRepository. implements w DemoDataLoader oznacza dostarczenie
+implementacji umowy CommandLineRunner.
+
+ENUM — typ o zamkniętym zestawie wartości określonym w kodzie.
+TransactionType: INCOME, EXPENSE.
+Role: USER, ADMIN.
+HouseholdRole: OWNER, MEMBER.
+W TransactionType nie mogę dowolnie przypisać tekstu "WYDATEKK".
+Enum nadaje się do niewielkiego zestawu opcji ustalonego przez program.
+Kategoria tworzona przez użytkownika jest innym przypadkiem: jej wartości
+mogą być danymi w tabeli, zamiast stałymi w kodzie.
+Enum nie potrzebuje osobnego repozytorium, jeżeli jego wartości
+nie są osobno zarządzanymi rekordami w bazie.
+Role w modelu danych nie nadają automatycznie uprawnień Spring Security.
+
+RECORD — zwięzły sposób zapisania klasy służącej do przenoszenia danych.
+CreateTransactionRequest, TransactionResponse i CreateTransferRequest
+to recordy. Kompilator tworzy m.in. konstruktor, metody odczytu,
+equals(), hashCode() i toString(). Metoda odczytu to amount(), nie getAmount().
+Pola składowe są final; to płytka niezmienność, a nie gwarancja
+niezmienności dowolnych obiektów trzymanych wewnątrz.
+Moje DTO nie mają własnej tożsamości i relacji JPA, dlatego record
+jest dla nich wygodny. Nie oznaczam ich @Entity.
+
+
+5. MODEL, REPOZYTORIUM, SERWIS, KONTROLER I DTO — PO CO PODZIAŁ
+============================================================
+
+MODEL/ENCJA: jak wyglądają przechowywane dane.
+Transaction opisuje kwotę, datę, typ i konto operacji.
+
+REPOSITORY: jak odczytać i zapisać te dane.
+TransactionRepository oferuje zapis i wyszukiwanie transakcji.
+
+SERVICE: jakie reguły obowiązują przy wykonaniu operacji.
+TransactionService odczytuje konto, przelicza saldo i zapisuje transakcję.
+To dobre miejsce na operacje, które łączą kilka repozytoriów.
+
+CONTROLLER: jak klient wywołuje operację przez HTTP.
+TransactionController odbiera POST i oddaje odpowiedź ze statusem 201.
+Serwis może być użyty także przez zadanie w tle, bez kontrolera.
+
+DTO: jakie dane wolno przyjąć od klienta lub mu odesłać.
+CreateTransactionRequest przenosi accountId, a TransactionResponse
+zwraca accountName. Dzięki temu odpowiedź nie musi być kopią encji
+i nie trzeba serializować całego grafu powiązanych obiektów.
+
+Nie każda rzecz wymaga kompletnego zestawu wszystkich warstw:
+- Prosty odczyt kont korzysta teraz bezpośrednio z repozytorium.
+- Dashboard oblicza wynik z istniejących danych i nie ma własnej tabeli.
+- Przelew jest operacją na kontach, dlatego korzysta z AccountRepository.
+- Enum jest zestawem stałych i nie ma osobnego repozytorium.
+- Membership jest encją nawet bez własnego repozytorium. Brakuje jednak
+  obecnie funkcji aplikacji, która zarządzałaby członkostwem.
+- Dodawanie klasy przekazującej wyłącznie jedno wywołanie nie jest
+  obowiązkiem frameworka. Warstwa ma służyć zrozumiałemu podziałowi zadań.
+
+Przy prezentacji umiem powiedzieć: „Kontroler obsługuje HTTP, serwis
+wykonuje przypadek użycia, repozytorium udostępnia zapis, a encja
+opisuje dane. DTO opisuje kontrakt komunikacji”.
+
+
+6. MAPA WSZYSTKICH PLIKÓW JAVA I ICH RZECZYWISTE ZADANIA
+======================================================
+
+Poniżej są wszystkie 50 plików w src/main/java i jeden plik testowy.
+Ścieżki w tej części są względem src/main/java/com/example/demoapp,
+chyba że zaznaczono src/test. Status opisuje kod, a nie obietnicę
+pełnej gotowości funkcji do użycia produkcyjnego.
+
+URUCHOMIENIE
+
+DemoappApplication.java — klasa z main; uruchamia Spring Boot.
+
+MODEL — DZIEWIĘĆ ENCJI I TRZY ENUMY
+
+model/Account.java — encja konta; tabela accounts. Zawiera id, name,
+accountType i balance. Nazwa jest unikalna globalnie w tabeli.
+Nie ma obecnie powiązania konta z User ani Household.
+
+model/Transaction.java — encja operacji finansowej; tabela transactions.
+Zawiera opis, kwotę, datę, kategorię jako String, typ enuma i relację
+do Account. To jedyna jawna relacja @ManyToOne w obecnym kodzie.
+
+model/Budget.java — encja limitu miesięcznego dla kategorii; budgets.
+Zawiera category i monthlyLimit. Nie ma pola konkretnego miesiąca,
+właściciela ani kodu liczącego wykorzystanie limitu.
+
+model/Category.java — encja nazwy kategorii; categories, unikalne name.
+Jest osobną tabelą, lecz Transaction.category i Budget.category
+są nadal zwykłymi napisami. Nie są obecnie relacjami do Category.
+
+model/Goal.java — encja celu oszczędnościowego; goals. Przechowuje nazwę,
+kwotę docelową, aktualną i termin. Sam zapis celu nie odkłada pieniędzy
+na konto ani nie synchronizuje jego kwoty z transakcjami.
+
+model/Household.java — encja gospodarstwa; households. Ma id i name.
+Wspólne finanse i uprawnienia członków nie wynikają z tych dwóch pól.
+
+model/Membership.java — encja członkostwa; memberships. Ma id, userId
+i householdId jako Long. To numery w kolumnach, bez mapowania relacji
+do User/Household i bez deklaracji kluczy obcych przez te adnotacje.
+Nie ma pola HouseholdRole ani własnego repozytorium, serwisu i kontrolera.
+
+model/RecurringPayment.java — encja definicji płatności cyklicznej;
+recurring_payments. Ma tytuł, kwotę, frequency jako String i nextDueDate.
+Nie ma kodu wykonującego płatność i przesuwającego termin.
+
+model/User.java — encja danych użytkownika; users. Ma username, password,
+email i role z domyślną wartością USER. Sama encja nie hashuje hasła
+i nie integruje logowania z bazą. Aktualny UserController zwraca tę
+encję z polem password; do właściwej obsługi użytkowników potrzebne
+są osobne DTO, hashowanie i integracja zabezpieczeń.
+
+model/TransactionType.java — enum INCOME/EXPENSE, używany w Transaction
+i DTO. TransactionService sprawdza INCOME, a w przeciwnym razie odejmuje kwotę.
+
+model/Role.java — enum USER/ADMIN, zapisywany w User.role.
+SecurityConfig nie sprawdza obecnie tej roli.
+
+model/HouseholdRole.java — enum OWNER/MEMBER. Obecnie nieużywany
+przez pozostały kod domeny i niepodłączony do Membership.
+
+REPOZYTORIA — OSIEM INTERFEJSÓW
+
+repository/AccountRepository.java — JpaRepository<Account, Long>;
+dodatkowo findByName. Używany przez kontroler kont, dashboard,
+transakcje, przelewy oraz kod loadera danych.
+
+repository/TransactionRepository.java — JpaRepository<Transaction, Long>;
+dodatkowo findByAccountId. Używany przez TransactionService i DashboardService.
+Obecny endpoint listy korzysta z findAll, a nie z filtrowania po koncie.
+
+repository/BudgetRepository.java — JpaRepository<Budget, Long>;
+używany przez BudgetService.
+
+repository/CategoryRepository.java — JpaRepository<Category, Long>;
+nie ma obecnie kontrolera ani serwisu używającego tego repozytorium.
+
+repository/GoalRepository.java — JpaRepository<Goal, Long>;
+używany przez GoalService.
+
+repository/HouseholdRepository.java — JpaRepository<Household, Long>;
+używany przez HouseholdService.
+
+repository/RecurringPaymentRepository.java — JpaRepository<RecurringPayment, Long>;
+używany przez RecurringPaymentService.
+
+repository/UserRepository.java — JpaRepository<User, Long>;
+używany bezpośrednio przez UserController. Nie jest UserDetailsService
+i nie podpina automatycznie użytkowników z tabeli do HTTP Basic.
+
+SERWISY — DZIEWIĘĆ KLAS
+
+service/TransactionService.java — pobiera wszystkie transakcje i mapuje
+je na TransactionResponse; tworzy transakcję i aktualizuje saldo konta.
+Posługuje się dwoma repozytoriami w jednej metodzie @Transactional.
+
+service/TransferService.java — sprawdza różne identyfikatory kont,
+istnienie obu kont i dostępne środki; odejmuje/dodaje kwotę w transakcji
+bazodanowej. Obecnie nie zapisuje dwóch wpisów Transaction ani opisu
+przelewu do historii; description z DTO nie jest używane.
+
+service/BudgetService.java — lista budżetów i zapis budżetu.
+Nie liczy jeszcze wydatków względem limitu.
+
+service/GoalService.java — lista celów i zapis celu.
+Nie wykonuje zasilania celu ani transferu pieniędzy.
+
+service/HouseholdService.java — lista gospodarstw i zapis gospodarstwa.
+Nie dodaje członków ani uprawnień.
+
+service/RecurringPaymentService.java — lista definicji i zapis definicji
+płatności cyklicznej. Nie jest harmonogramem wykonującym płatności.
+
+service/DashboardService.java — zwraca Map z accountsCount i transactionsCount.
+Obecnie to dwa liczniki rekordów, a nie zestawienie sum przychodów i wydatków.
+
+service/ForecastService.java — zwraca stałe ESTIMATED_EXPENSES = 2500.00.
+Parametr accountId nie wpływa na wynik. To makieta prognozy,
+bez analizy historii, bez integracji z R i bez własnego endpointu.
+
+service/SettlementService.java — metoda calculateHouseholdBalancing
+ma pustą treść. Bean istnieje, ale rozliczenia nie są zaimplementowane.
+
+KONTROLERY — DZIEWIĘĆ KLAS
+
+controller/AccountController.java — GET /api/accounts;
+zwraca encje kont, korzystając bezpośrednio z AccountRepository.
+Nie ma endpointu POST tworzącego konto.
+
+controller/TransactionController.java — GET i POST /api/transactions;
+korzysta z TransactionService i DTO, POST zwraca 201.
+
+controller/TransferController.java — POST /api/transfers;
+odbiera CreateTransferRequest, wywołuje TransferService i zwraca
+tekst o powodzeniu ze statusem 200.
+
+controller/BudgetController.java — GET i POST /api/budgets;
+korzysta z BudgetService, przyjmuje/zwraca encję Budget, POST daje 201.
+
+controller/GoalController.java — GET i POST /api/goals;
+korzysta z GoalService, przyjmuje/zwraca encję Goal, POST daje 201.
+
+controller/HouseholdController.java — GET i POST /api/households;
+korzysta z HouseholdService, przyjmuje/zwraca encję Household, POST daje 201.
+
+controller/RecurringPaymentController.java — GET i POST /api/recurring-payments;
+korzysta z RecurringPaymentService, POST zapisuje definicję i daje 201.
+
+controller/UserController.java — GET i POST /api/users;
+używa bezpośrednio UserRepository, POST zapisuje User i zwraca 200.
+To nie są endpointy logowania i rejestracji z gotową obsługą bezpieczeństwa.
+
+controller/DashboardController.java — GET /api/dashboard/summary;
+zwraca Map otrzymaną z DashboardService.
+
+DTO — TRZY RECORDY
+
+dto/transaction/CreateTransactionRequest.java — dane wejściowe POST:
+description, amount, transactionDate, category, type, accountId.
+
+dto/transaction/TransactionResponse.java — dane wyjściowe transakcji:
+id, description, amount, transactionDate, category, type, accountName.
+Nie zwraca całej encji konta.
+
+dto/transfer/CreateTransferRequest.java — dane wejściowe przelewu:
+sourceAccountId, targetAccountId, amount, description.
+
+KONFIGURACJA — PIĘĆ KLAS
+
+config/SecurityConfig.java — tworzy SecurityFilterChain.
+Dokumentacja Swagger/OpenAPI ma permitAll, pozostałe adresy wymagają
+uwierzytelnienia. Włączone jest HTTP Basic, CSRF jest wyłączone.
+Nie ma konfiguracji logowania JWT ani autoryzacji według Role.
+
+config/OpenApiConfig.java — tworzy bean OpenAPI z tytułem Dukat API,
+wersją opisu 1.0 i opisem dokumentacji. Obiekty OpenAPI/Info należą
+do biblioteki; nie są moimi encjami ani adnotacjami.
+
+config/SchedulingConfig.java — włącza obsługę harmonogramu.
+Brak zdefiniowanych zadań do wykonania.
+
+config/JwtConfig.java — pusta konfiguracja z komentarzem o JWT.
+Nie generuje, nie podpisuje i nie weryfikuje tokenów.
+
+config/RestClientConfig.java — pusta konfiguracja z komentarzem
+o pobieraniu danych z zewnątrz. Nie tworzy jeszcze klienta NBP.
+
+POZOSTAŁE KLASY
+
+exception/GlobalExceptionHandler.java — wspólna obsługa wyjątków
+kontrolerów; dwa rodzaje błędów daje jako 400, pozostałe Exception jako 500.
+
+aspect/AuditLoggingAspect.java — pusty komponent Springa.
+Nie zawiera @Aspect, punktów przecięcia ani kodu zapisującego audyt.
+
+init/DemoDataLoader.java — klasa implementująca CommandLineRunner.
+Metoda run utworzyłaby jedno konto z saldem 0.00, jeśli tabela jest pusta.
+Klasa NIE ma @Component i nie ma metody @Bean, która ją rejestruje.
+W obecnej konfiguracji Spring nie uruchomi jej automatycznie.
+To tłumaczy możliwy brak konta demonstracyjnego mimo poprawnego startu.
+
+TESTY
+
+src/test/java/com/example/demoapp/DemoappApplicationTests.java — klasa
+testów integracyjnych. Uruchamia aplikację z H2 i wolnym portem.
+Sprawdza OpenAPI oraz Swagger UI. Testy finansów wymagają osobnego dodania.
+
+
+7. DWA PRZEPŁYWY KROK PO KROKU: WYDATEK I PRZELEW
+================================================
+
+A. DODANIE WYDATKU
+
+Założenie: w bazie istnieje konto o id 1 i saldzie 1000.00.
+Nie zakładam, że takie konto rzeczywiście już jest w mojej bazie.
+
+POST http://localhost:8082/api/transactions
+Authorization: Basic Auth z aktualnymi danymi uruchomienia.
+Content-Type: application/json
+
+{
+  "description": "Zakupy",
+  "amount": 50.00,
+  "transactionDate": "2026-10-20",
+  "category": "Jedzenie",
+  "type": "EXPENSE",
+  "accountId": 1
+}
+
+1) Security sprawdza uwierzytelnienie.
+2) @RequestBody zamienia JSON na CreateTransactionRequest.
+3) Kontroler wywołuje TransactionService.createTransaction.
+4) @Transactional otwiera lub dołącza transakcję bazodanową.
+5) findById wyszukuje konto. Optional opisuje możliwość braku wyniku.
+6) Ponieważ typ to EXPENSE, kod odejmuje 50.00 od salda.
+7) Repozytoria zapisują konto i nową encję Transaction.
+8) mapToResponse tworzy DTO odpowiedzi.
+9) Po udanym zakończeniu transakcja jest zatwierdzana; błąd może
+   spowodować rollback. Moment wysłania SQL zależy też od JPA/flush.
+10) Kontroler zwraca HTTP 201 z JSON. Oczekiwane saldo to 950.00.
+
+BigDecimal.add/subtract zwraca nową wartość. Samo account.getBalance()
+.subtract(amount) bez przypisania/setBalance nie zmieni salda konta.
+LocalDate przechowuje datę bez godziny i strefy czasowej.
+
+GET /api/transactions pobiera listę, stream().map(...) zamienia każdą
+encję na DTO, a toList() zbiera wyniki. this::mapToResponse to referencja
+do metody mapującej. Obecny kod nie dodaje stronicowania ani filtra.
+
+B. PRZELEW MIĘDZY KONTAMI
+
+POST /api/transfers z sourceAccountId, targetAccountId, amount, description.
+TransferService sprawdza, czy konta są różne i istnieją, oraz czy saldo
+źródłowe jest wystarczające. Następnie zmienia oba salda i je zapisuje.
+Nie potrzebuje osobnego TransferRepository, bo aktualnie nie istnieje
+encja Transfer do zapisania. Korzysta z AccountRepository.
+Przelew nie dopisuje dziś wpisów do transactions, więc sam odczyt tej
+tabeli nie pokaże pełnej historii zmian salda.
+
+
+8. CO JEST GOTOWE, A CO NA RAZIE TYLKO ZAPLANOWANE
+================================================
+
+Własna nazwa klasy, obecność encji, beana i endpointu to różne etapy.
+Przykład: zapis RecurringPayment jest gotowym fragmentem CRUD,
+ale automatyczne wykonanie płatności cyklicznych nie jest gotową funkcją.
+
+Konkretne różnice w obecnym kodzie, które warto umieć wskazać:
+
+- JWT, integracja z NBP, rozliczenia gospodarstwa i audyt są szkieletem.
+- Prognoza 2500.00 jest stałą demonstracyjną, nie wyliczeniem.
+- Dashboard liczy rekordy, nie sumuje wartości finansowych.
+- Role encji User i HouseholdRole nie sterują teraz dostępem do danych.
+- Konta i inne rekordy nie są ograniczone do bieżącego użytkownika.
+- Kategoria jako String nie jest powiązana z tabelą categories.
+- Membership nie ma obecnie mapowania relacji, roli członka i obsługi API.
+- DemoDataLoader nie jest beanem, więc sam się nie wykona.
+- Brakuje walidacji wymaganych i dodatnich wartości w DTO.
+  Szczególnie ujemna kwota przelewu mogłaby odwrócić kierunek zmiany sald.
+- @Transactional daje wspólną granicę zapisu, ale nie zastępuje
+  zabezpieczenia przed utratą zmian przy równoczesnych operacjach.
+- UserController zapisuje i zwraca pole password. To nie jest kompletna
+  implementacja kont użytkowników i bezpiecznego logowania.
+- W bazie są mechanizmy tworzenia schematu Hibernate, ale plik
+  db/migration/V!_init.sql jest pusty. Nie ma zależności Flyway.
+  Sam katalog db/migration nie oznacza działających migracji.
+
+Nie trzeba naprawiać całego tego zakresu, żeby zrozumieć przyczynę
+błędu Swaggera. Na prezentacji należy jednak zgodnie ze stanem kodu
+oznaczać funkcje jako gotowe, częściowe albo planowane.
+
+
+9. NARZĘDZIA, KONFIGURACJA I KRÓTKIE ĆWICZENIA
+============================================
+
+Java — język backendu. Spring Boot — uruchomienie i konfiguracja backendu.
+Spring MVC — obsługa HTTP. Spring Data JPA — repozytoria.
+JPA — standard mapowania danych. Hibernate — jego używana implementacja.
+JDBC — komunikacja Java z bazą; sterownik PostgreSQL jest już w pom.xml.
+Maven — budowanie i zależności zapisane w pom.xml.
+
+Po uporządkowaniu pom.xml projekt korzysta ze starterów webmvc, aspectj,
+data-jpa, security i validation zarządzanych przez Spring Boot 4.1.1.
+Stary spring-boot-starter-aop w wersji 3.2.0 został usunięty.
+Startery webmvc-test i security-test oraz H2 mają scope test:
+są dostępne podczas testów i nie trafiają do uruchamialnego JAR-a.
+Nie trzeba dodatkowo wpisywać spring-security-test, bo starter
+security-test już go dostarcza. DevTools ma runtime i optional=true;
+optional zapobiega przekazywaniu go jako zależności kolejnym projektom.
+Plugin Spring Boot domyślnie pomija DevTools podczas pakowania.
+Wersja springdoc jest ustawiona osobno w properties jako springdoc.version,
+ponieważ nie jest zarządzana przez parent Spring Boot.
+
+Docker — uruchamia bazę w kontenerze na podstawie obrazu postgres:15.
+docker-compose.yml — opis usługi db, portów, danych logowania i wolumenu.
+5433:5432 oznacza port 5433 komputera -> port 5432 kontenera.
+Wolumen dukat_postgres_data utrzymuje dane niezależnie od życia
+pojedynczego kontenera. Nie trzeba usuwać danych do naprawy springdoc.
+
+Postman — klient HTTP do wysyłania GET/POST i odczytu statusów oraz JSON.
+Swagger UI — dokumentacja API z możliwością wywoływania operacji.
+OpenAPI — format opisu API. springdoc — biblioteka budująca ten opis.
+Żadne z tych narzędzi nie zastępuje reguł biznesowych backendu.
+
+PostgreSQL — serwer bazy danych. pgAdmin — program do pracy z tym serwerem.
+SQL — język zapytań. Terminal — miejsce uruchamiania poleceń narzędzi.
+IntelliJ — środowisko pracy z kodem i uruchamianiem Javy.
+
+application.properties ustawia m.in.:
+- server.port=8082: port HTTP backendu;
+- spring.datasource.url: adres połączenia JDBC do bazy;
+- ddl-auto=update: aktualizację schematu przez Hibernate;
+- show-sql=true: wypisywanie SQL w logu.
+
+HTML/CSS opisują strukturę i wygląd interfejsu. Angular organizuje jego
+komponenty i komunikację z API, najczęściej w TypeScript.
+W tym katalogu projektu nie znaleziono obecnie źródeł frontendu.
+Thymeleaf jest innym sposobem generowania HTML po stronie backendu.
+W tym projekcie nie był używany i został usunięty z pom.xml;
+do komunikacji backendu z osobnym frontendem Angular nie jest potrzebny.
+
+PYTANIA DO POWTÓRKI — ODPOWIEDZ WŁASNYMI SŁOWAMI
+
+1) Dlaczego HTTP 200 z [] może oznaczać poprawnie działający endpoint?
+   Bo lista w bazie może być pusta; sukces nie wymaga istnienia rekordów.
+2) Dlaczego poprawny start aplikacji nie gwarantuje działania Swaggera?
+   Część kodu i integracji jest wykonywana dopiero po żądaniu HTTP.
+3) Dlaczego nie dopisuję konstruktora ControllerAdviceBean do swojego kodu?
+   Błąd dotyczy zgodności bibliotek, a nie brakującej metody mojej klasy.
+4) Dlaczego TransactionService ma dwa repozytoria?
+   Operacja obejmuje konto i zapis historii finansowej.
+5) Dlaczego TransferService nie ma własnego repozytorium przelewów?
+   Obecnie zmienia konta i nie ma encji Transfer.
+6) Dlaczego Category jest encją, a TransactionType enumem?
+   Kategorie mogą być danymi, a typy operacji są zamkniętym zbiorem w kodzie.
+7) Dlaczego User z tabeli nie może automatycznie zalogować się przez Basic?
+   Brakuje integracji UserRepository z mechanizmem uwierzytelniania.
+8) Dlaczego @Column(nullable=false) nie sprawdza dodatniej kwoty?
+   Zakaz NULL i reguła „większe od zera” są innymi ograniczeniami.
+9) Dlaczego DemoDataLoader nie tworzy konta podczas startu?
+   Implementuje umowę runnera, lecz nie został zarejestrowany jako bean.
+10) Czym różni się finansowa transakcja od @Transactional?
+    Pierwsza jest danymi domeny, druga granicą spójnego wykonania zapisów.
+11) Dlaczego rekord w tabeli categories nie ogranicza tekstu category w Transaction?
+    Nie ma między nimi obecnie relacji ani odpowiedniej walidacji.
+12) Jakie testy potwierdzają dzisiejszą poprawkę?
+    HTTP 200 i zawartość OpenAPI oraz dostępność strony Swagger UI.
+
+Ćwiczenie 1: narysuj przepływ POST /api/transactions i przy każdym kroku
+zapisz nazwę klasy z kodu oraz typ danych wejścia i wyjścia.
+Ćwiczenie 2: odszukaj wszystkie adnotacje w Account i powiedz, co stanie
+się w bazie po zapisie dwóch kont o tej samej nazwie.
+Ćwiczenie 3: porównaj UserController z TransactionController — wskaż,
+gdzie jest serwis, gdzie DTO i co trafia do odpowiedzi HTTP.
+Ćwiczenie 4: wyjaśnij, dlaczego samo @EnableScheduling nie zmienia
+nextDueDate w RecurringPayment.
+Ćwiczenie 5: znajdź przykład każdej postaci: class, interface, enum,
+record i implements; opisz, co w konkretnym miejscu daje ten wybór.
+
+
+10. DOKUMENTACJA ŹRÓDŁOWA
+========================
+
+Opis stanu i odpowiedzialności plików wynika z całego własnego kodu
+projektu. Dokumentacja poniżej służy do sprawdzania mechanizmów bibliotek.
+
+Springdoc — zgodność wersji i adresy dokumentacji:
+https://springdoc.org/
+
+Spring — wykrywanie komponentów i stereotypy:
+https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html
+
+Spring Data — interfejsy repozytoriów:
+https://docs.spring.io/spring-data/jpa/reference/repositories/definition.html
+
+Spring — RequestBody:
+https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-methods/requestbody.html
+
+Spring — obsługa wyjątków:
+https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-exceptionhandler.html
+
+Spring — transakcje deklaratywne:
+https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/annotations.html
+
+Spring — harmonogram:
+https://docs.spring.io/spring-framework/reference/integration/scheduling.html
+
+Jakarta Persistence — Entity:
+https://jakarta.ee/specifications/persistence/3.2/apidocs/jakarta.persistence/jakarta/persistence/Entity.html
+
+Jakarta Persistence — Column:
+https://jakarta.ee/specifications/persistence/3.2/apidocs/jakarta.persistence/jakarta/persistence/Column.html
+
+Java 21 — record:
+https://docs.oracle.com/en/java/javase/21/language/records.html
+
+Spring Boot — testowanie aplikacji:
+https://docs.spring.io/spring-boot/reference/testing/spring-boot-applications.html
+
+
+11. AUTOMATYCZNY INDEKS WYSTĄPIEŃ ADNOTACJI
+=========================================
+
+Własne pliki Java: 51
+Różne adnotacje: 28
+Wystąpienia w kodzie: 151
+Numery linii odpowiadają stanowi zapisania tej notatki.
+
+@Bean — liczba wystąpień: 2
+  src/main/java/com/example/demoapp/config/OpenApiConfig.java — linie: 11
+  src/main/java/com/example/demoapp/config/SecurityConfig.java — linie: 12
+
+@Column — liczba wystąpień: 24
+  src/main/java/com/example/demoapp/model/Account.java — linie: 15, 18, 21
+  src/main/java/com/example/demoapp/model/Budget.java — linie: 14, 17
+  src/main/java/com/example/demoapp/model/Category.java — linie: 13
+  src/main/java/com/example/demoapp/model/Goal.java — linie: 15, 18, 21
+  src/main/java/com/example/demoapp/model/Household.java — linie: 13
+  src/main/java/com/example/demoapp/model/Membership.java — linie: 13, 16
+  src/main/java/com/example/demoapp/model/RecurringPayment.java — linie: 15, 18, 21, 24
+  src/main/java/com/example/demoapp/model/Transaction.java — linie: 15, 18, 21, 24, 28
+  src/main/java/com/example/demoapp/model/User.java — linie: 13, 16, 19
+
+@Component — liczba wystąpień: 1
+  src/main/java/com/example/demoapp/aspect/AuditLoggingAspect.java — linie: 5
+
+@Configuration — liczba wystąpień: 5
+  src/main/java/com/example/demoapp/config/JwtConfig.java — linie: 5
+  src/main/java/com/example/demoapp/config/OpenApiConfig.java — linie: 8
+  src/main/java/com/example/demoapp/config/RestClientConfig.java — linie: 5
+  src/main/java/com/example/demoapp/config/SchedulingConfig.java — linie: 6
+  src/main/java/com/example/demoapp/config/SecurityConfig.java — linie: 9
+
+@CrossOrigin — liczba wystąpień: 9
+  src/main/java/com/example/demoapp/controller/AccountController.java — linie: 11
+  src/main/java/com/example/demoapp/controller/BudgetController.java — linie: 13
+  src/main/java/com/example/demoapp/controller/DashboardController.java — linie: 11
+  src/main/java/com/example/demoapp/controller/GoalController.java — linie: 13
+  src/main/java/com/example/demoapp/controller/HouseholdController.java — linie: 13
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java — linie: 13
+  src/main/java/com/example/demoapp/controller/TransactionController.java — linie: 14
+  src/main/java/com/example/demoapp/controller/TransferController.java — linie: 10
+  src/main/java/com/example/demoapp/controller/UserController.java — linie: 12
+
+@EnableScheduling — liczba wystąpień: 1
+  src/main/java/com/example/demoapp/config/SchedulingConfig.java — linie: 7
+
+@Entity — liczba wystąpień: 9
+  src/main/java/com/example/demoapp/model/Account.java — linie: 6
+  src/main/java/com/example/demoapp/model/Budget.java — linie: 6
+  src/main/java/com/example/demoapp/model/Category.java — linie: 5
+  src/main/java/com/example/demoapp/model/Goal.java — linie: 7
+  src/main/java/com/example/demoapp/model/Household.java — linie: 5
+  src/main/java/com/example/demoapp/model/Membership.java — linie: 5
+  src/main/java/com/example/demoapp/model/RecurringPayment.java — linie: 7
+  src/main/java/com/example/demoapp/model/Transaction.java — linie: 7
+  src/main/java/com/example/demoapp/model/User.java — linie: 5
+
+@Enumerated — liczba wystąpień: 2
+  src/main/java/com/example/demoapp/model/Transaction.java — linie: 27
+  src/main/java/com/example/demoapp/model/User.java — linie: 22
+
+@ExceptionHandler — liczba wystąpień: 3
+  src/main/java/com/example/demoapp/exception/GlobalExceptionHandler.java — linie: 12, 17, 22
+
+@GeneratedValue — liczba wystąpień: 9
+  src/main/java/com/example/demoapp/model/Account.java — linie: 12
+  src/main/java/com/example/demoapp/model/Budget.java — linie: 11
+  src/main/java/com/example/demoapp/model/Category.java — linie: 10
+  src/main/java/com/example/demoapp/model/Goal.java — linie: 12
+  src/main/java/com/example/demoapp/model/Household.java — linie: 10
+  src/main/java/com/example/demoapp/model/Membership.java — linie: 10
+  src/main/java/com/example/demoapp/model/RecurringPayment.java — linie: 12
+  src/main/java/com/example/demoapp/model/Transaction.java — linie: 12
+  src/main/java/com/example/demoapp/model/User.java — linie: 10
+
+@GetMapping — liczba wystąpień: 8
+  src/main/java/com/example/demoapp/controller/AccountController.java — linie: 20
+  src/main/java/com/example/demoapp/controller/BudgetController.java — linie: 22
+  src/main/java/com/example/demoapp/controller/DashboardController.java — linie: 20
+  src/main/java/com/example/demoapp/controller/GoalController.java — linie: 22
+  src/main/java/com/example/demoapp/controller/HouseholdController.java — linie: 22
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java — linie: 22
+  src/main/java/com/example/demoapp/controller/TransactionController.java — linie: 23
+  src/main/java/com/example/demoapp/controller/UserController.java — linie: 21
+
+@Id — liczba wystąpień: 9
+  src/main/java/com/example/demoapp/model/Account.java — linie: 11
+  src/main/java/com/example/demoapp/model/Budget.java — linie: 10
+  src/main/java/com/example/demoapp/model/Category.java — linie: 9
+  src/main/java/com/example/demoapp/model/Goal.java — linie: 11
+  src/main/java/com/example/demoapp/model/Household.java — linie: 9
+  src/main/java/com/example/demoapp/model/Membership.java — linie: 9
+  src/main/java/com/example/demoapp/model/RecurringPayment.java — linie: 11
+  src/main/java/com/example/demoapp/model/Transaction.java — linie: 11
+  src/main/java/com/example/demoapp/model/User.java — linie: 9
+
+@JoinColumn — liczba wystąpień: 1
+  src/main/java/com/example/demoapp/model/Transaction.java — linie: 33
+
+@ManyToOne — liczba wystąpień: 1
+  src/main/java/com/example/demoapp/model/Transaction.java — linie: 32
+
+@Override — liczba wystąpień: 1
+  src/main/java/com/example/demoapp/init/DemoDataLoader.java — linie: 17
+
+@PostMapping — liczba wystąpień: 7
+  src/main/java/com/example/demoapp/controller/BudgetController.java — linie: 27
+  src/main/java/com/example/demoapp/controller/GoalController.java — linie: 27
+  src/main/java/com/example/demoapp/controller/HouseholdController.java — linie: 27
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java — linie: 27
+  src/main/java/com/example/demoapp/controller/TransactionController.java — linie: 28
+  src/main/java/com/example/demoapp/controller/TransferController.java — linie: 19
+  src/main/java/com/example/demoapp/controller/UserController.java — linie: 26
+
+@Repository — liczba wystąpień: 8
+  src/main/java/com/example/demoapp/repository/AccountRepository.java — linie: 9
+  src/main/java/com/example/demoapp/repository/BudgetRepository.java — linie: 7
+  src/main/java/com/example/demoapp/repository/CategoryRepository.java — linie: 7
+  src/main/java/com/example/demoapp/repository/GoalRepository.java — linie: 7
+  src/main/java/com/example/demoapp/repository/HouseholdRepository.java — linie: 7
+  src/main/java/com/example/demoapp/repository/RecurringPaymentRepository.java — linie: 7
+  src/main/java/com/example/demoapp/repository/TransactionRepository.java — linie: 9
+  src/main/java/com/example/demoapp/repository/UserRepository.java — linie: 7
+
+@RequestBody — liczba wystąpień: 7
+  src/main/java/com/example/demoapp/controller/BudgetController.java — linie: 28
+  src/main/java/com/example/demoapp/controller/GoalController.java — linie: 28
+  src/main/java/com/example/demoapp/controller/HouseholdController.java — linie: 28
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java — linie: 28
+  src/main/java/com/example/demoapp/controller/TransactionController.java — linie: 29
+  src/main/java/com/example/demoapp/controller/TransferController.java — linie: 20
+  src/main/java/com/example/demoapp/controller/UserController.java — linie: 27
+
+@RequestMapping — liczba wystąpień: 9
+  src/main/java/com/example/demoapp/controller/AccountController.java — linie: 10
+  src/main/java/com/example/demoapp/controller/BudgetController.java — linie: 12
+  src/main/java/com/example/demoapp/controller/DashboardController.java — linie: 10
+  src/main/java/com/example/demoapp/controller/GoalController.java — linie: 12
+  src/main/java/com/example/demoapp/controller/HouseholdController.java — linie: 12
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java — linie: 12
+  src/main/java/com/example/demoapp/controller/TransactionController.java — linie: 13
+  src/main/java/com/example/demoapp/controller/TransferController.java — linie: 9
+  src/main/java/com/example/demoapp/controller/UserController.java — linie: 11
+
+@RestController — liczba wystąpień: 9
+  src/main/java/com/example/demoapp/controller/AccountController.java — linie: 9
+  src/main/java/com/example/demoapp/controller/BudgetController.java — linie: 11
+  src/main/java/com/example/demoapp/controller/DashboardController.java — linie: 9
+  src/main/java/com/example/demoapp/controller/GoalController.java — linie: 11
+  src/main/java/com/example/demoapp/controller/HouseholdController.java — linie: 11
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java — linie: 11
+  src/main/java/com/example/demoapp/controller/TransactionController.java — linie: 12
+  src/main/java/com/example/demoapp/controller/TransferController.java — linie: 8
+  src/main/java/com/example/demoapp/controller/UserController.java — linie: 10
+
+@RestControllerAdvice — liczba wystąpień: 1
+  src/main/java/com/example/demoapp/exception/GlobalExceptionHandler.java — linie: 8
+
+@Service — liczba wystąpień: 9
+  src/main/java/com/example/demoapp/service/BudgetService.java — linie: 9
+  src/main/java/com/example/demoapp/service/DashboardService.java — linie: 10
+  src/main/java/com/example/demoapp/service/ForecastService.java — linie: 8
+  src/main/java/com/example/demoapp/service/GoalService.java — linie: 9
+  src/main/java/com/example/demoapp/service/HouseholdService.java — linie: 9
+  src/main/java/com/example/demoapp/service/RecurringPaymentService.java — linie: 9
+  src/main/java/com/example/demoapp/service/SettlementService.java — linie: 5
+  src/main/java/com/example/demoapp/service/TransactionService.java — linie: 15
+  src/main/java/com/example/demoapp/service/TransferService.java — linie: 9
+
+@SpringBootApplication — liczba wystąpień: 1
+  src/main/java/com/example/demoapp/DemoappApplication.java — linie: 6
+
+@SpringBootTest — liczba wystąpień: 1
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java — linie: 16
+
+@Table — liczba wystąpień: 9
+  src/main/java/com/example/demoapp/model/Account.java — linie: 8
+  src/main/java/com/example/demoapp/model/Budget.java — linie: 7
+  src/main/java/com/example/demoapp/model/Category.java — linie: 6
+  src/main/java/com/example/demoapp/model/Goal.java — linie: 8
+  src/main/java/com/example/demoapp/model/Household.java — linie: 6
+  src/main/java/com/example/demoapp/model/Membership.java — linie: 6
+  src/main/java/com/example/demoapp/model/RecurringPayment.java — linie: 8
+  src/main/java/com/example/demoapp/model/Transaction.java — linie: 8
+  src/main/java/com/example/demoapp/model/User.java — linie: 6
+
+@Test — liczba wystąpień: 2
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java — linie: 32, 41
+
+@Transactional — liczba wystąpień: 2
+  src/main/java/com/example/demoapp/service/TransactionService.java — linie: 32
+  src/main/java/com/example/demoapp/service/TransferService.java — linie: 18
+
+@Value — liczba wystąpień: 1
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java — linie: 29
+
