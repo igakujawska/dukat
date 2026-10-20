@@ -134,3 +134,36 @@
     backdrop-filter: blur(8px);
   }
 }
+
+/* Dłuższa nawigacja pozostaje dostępna także na niskim ekranie. */
+.sidebar {
+  overflow-y: auto;
+}
+.sidebar nav button {
+  flex-shrink: 0;
+}
+.workspace-label {
+  margin-top: 25px;
+}
+.sidebar-bottom {
+  margin-top: auto;
+  padding-top: 22px;
+}
+.account-actions {
+  display: flex;
+  gap: 16px;
+  margin: 10px 0;
+}
+.account-actions .text-button {
+  font-size: 11px;
+}
+@media (max-height: 950px) {
+  .sidebar-note {
+    display: none;
+  }
+  .sidebar nav {
+    gap: 4px;
+  }
+}
+
+.sidebar{overflow-x:hidden}.profile-copy{min-width:0;flex:1}.profile-copy strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.profile-button>app-icon{flex-shrink:0}
