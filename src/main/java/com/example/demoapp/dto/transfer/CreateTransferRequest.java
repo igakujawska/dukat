@@ -1,16 +1,30 @@
 package com.example.demoapp.dto.transfer;
 
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
+@Schema(description = "Przelew między dwoma różnymi własnymi kontami.")
 public record CreateTransferRequest(
-        @NotNull(message = "Konto źródłowe jest wymagane")
-        Long sourceAccountId,
-        @NotNull(message = "Konto docelowe jest wymagane")
-        Long targetAccountId,
-        @NotNull(message = "Kwota jest wymagana")
-        @Positive(message = "Kwota przelewu musi być dodatnia")
-        BigDecimal amount,
-        String description
+  @NotNull
+  @Schema(description = "Identyfikator własnego konta źródłowego.")
+  Long sourceAccountId,
+  @NotNull
+  @Schema(description = "Identyfikator innego własnego konta docelowego.")
+  Long targetAccountId,
+  @NotNull
+  @Positive
+  @Digits(integer = 15, fraction = 2)
+  @Schema(
+    description = "Dodatnia kwota w PLN; najwyżej dwa miejsca po przecinku."
+  )
+  BigDecimal amount,
+  @NotNull
+  @Schema(description = "Data operacji w formacie YYYY-MM-DD.")
+  LocalDate date,
+  @NotBlank
+  @Size(max = 255)
+  @Schema(description = "Opis operacji wyświetlany w historii.")
+  String description
 ) {}
