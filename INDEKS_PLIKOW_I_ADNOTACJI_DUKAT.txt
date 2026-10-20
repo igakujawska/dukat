@@ -1,0 +1,439 @@
+DUKAT — INDEKS WŁASNYCH PLIKÓW I ADNOTACJI
+Stan: 20.10.2026. Źródła src i dukat-ui/src; bez target, dist i node_modules.
+
+Mapa odpowiedzialności i wyjaśnienia: NOTATKA_DO_NAUKI_DUKAT.txt.
+W indeksie liczymy zapisy w kodzie po usunięciu komentarzy; nie importy @angular.
+@Component oznacza osobno stereotyp Springa i dekorator Angulara zależnie od pliku.
+
+1. PLIKI ŹRÓDŁOWE
+- dukat-ui/public/dukat.svg — zasób aplikacji
+- dukat-ui/public/favicon.ico — zasób aplikacji
+- dukat-ui/src/app/app.config.ts
+- dukat-ui/src/app/app.css — style
+- dukat-ui/src/app/app.html — szablon/dokument HTML
+- dukat-ui/src/app/app.routes.ts
+- dukat-ui/src/app/app.spec.ts
+- dukat-ui/src/app/app.ts — class AppComponent
+- dukat-ui/src/app/components/forecast-panel.css — style
+- dukat-ui/src/app/components/forecast-panel.html — szablon/dokument HTML
+- dukat-ui/src/app/components/forecast-panel.ts — class ForecastPanelComponent
+- dukat-ui/src/app/components/icon.ts — class IconComponent
+- dukat-ui/src/app/services/account.spec.ts
+- dukat-ui/src/app/services/account.ts — interface Account, interface CreateAccountRequest, class AccountService
+- dukat-ui/src/app/services/forecast.ts — interface Forecast, class ForecastService
+- dukat-ui/src/app/services/session.ts — class SessionService
+- dukat-ui/src/app/services/transaction.ts — interface FinanceTransaction, interface CreateTransactionRequest, class TransactionService
+- dukat-ui/src/app/styles/details.css — style
+- dukat-ui/src/app/styles/panels.css — style
+- dukat-ui/src/app/styles/sapphire.css — style
+- dukat-ui/src/index.html — szablon/dokument HTML
+- dukat-ui/src/main.ts
+- dukat-ui/src/styles.css — style
+- src/main/java/com/example/demoapp/DemoappApplication.java — class DemoappApplication
+- src/main/java/com/example/demoapp/aspect/AuditLoggingAspect.java — class AuditLoggingAspect
+- src/main/java/com/example/demoapp/config/JwtConfig.java — class JwtConfig
+- src/main/java/com/example/demoapp/config/OpenApiConfig.java — class OpenApiConfig
+- src/main/java/com/example/demoapp/config/RestClientConfig.java — class RestClientConfig
+- src/main/java/com/example/demoapp/config/SchedulingConfig.java — class SchedulingConfig
+- src/main/java/com/example/demoapp/config/SecurityConfig.java — class SecurityConfig
+- src/main/java/com/example/demoapp/controller/AccountController.java — class AccountController
+- src/main/java/com/example/demoapp/controller/BudgetController.java — class BudgetController
+- src/main/java/com/example/demoapp/controller/DashboardController.java — class DashboardController
+- src/main/java/com/example/demoapp/controller/ForecastController.java — class ForecastController
+- src/main/java/com/example/demoapp/controller/GoalController.java — class GoalController
+- src/main/java/com/example/demoapp/controller/HouseholdController.java — class HouseholdController
+- src/main/java/com/example/demoapp/controller/RecurringPaymentController.java — class RecurringPaymentController
+- src/main/java/com/example/demoapp/controller/TransactionController.java — class TransactionController
+- src/main/java/com/example/demoapp/controller/TransferController.java — class TransferController
+- src/main/java/com/example/demoapp/controller/UserController.java — class UserController
+- src/main/java/com/example/demoapp/dto/account/CreateAccountRequest.java — record CreateAccountRequest
+- src/main/java/com/example/demoapp/dto/forecast/ForecastResponse.java — record ForecastResponse, record MonthlyExpense, record ModelScore
+- src/main/java/com/example/demoapp/dto/transaction/CreateTransactionRequest.java — class CreateTransactionRequest
+- src/main/java/com/example/demoapp/dto/transaction/TransactionResponse.java — record TransactionResponse
+- src/main/java/com/example/demoapp/dto/transfer/CreateTransferRequest.java — record CreateTransferRequest
+- src/main/java/com/example/demoapp/exception/GlobalExceptionHandler.java — class GlobalExceptionHandler
+- src/main/java/com/example/demoapp/init/DemoDataLoader.java — class DemoDataLoader
+- src/main/java/com/example/demoapp/model/Account.java — class Account
+- src/main/java/com/example/demoapp/model/Budget.java — class Budget
+- src/main/java/com/example/demoapp/model/Category.java — class Category
+- src/main/java/com/example/demoapp/model/Goal.java — class Goal
+- src/main/java/com/example/demoapp/model/Household.java — class Household
+- src/main/java/com/example/demoapp/model/HouseholdRole.java — enum HouseholdRole
+- src/main/java/com/example/demoapp/model/Membership.java — class Membership
+- src/main/java/com/example/demoapp/model/RecurringPayment.java — class RecurringPayment
+- src/main/java/com/example/demoapp/model/Role.java — enum Role
+- src/main/java/com/example/demoapp/model/Transaction.java — class Transaction
+- src/main/java/com/example/demoapp/model/TransactionType.java — enum TransactionType
+- src/main/java/com/example/demoapp/model/User.java — class User
+- src/main/java/com/example/demoapp/repository/AccountRepository.java — interface AccountRepository
+- src/main/java/com/example/demoapp/repository/BudgetRepository.java — interface BudgetRepository
+- src/main/java/com/example/demoapp/repository/CategoryRepository.java — interface CategoryRepository
+- src/main/java/com/example/demoapp/repository/GoalRepository.java — interface GoalRepository
+- src/main/java/com/example/demoapp/repository/HouseholdRepository.java — interface HouseholdRepository
+- src/main/java/com/example/demoapp/repository/RecurringPaymentRepository.java — interface RecurringPaymentRepository
+- src/main/java/com/example/demoapp/repository/TransactionRepository.java — interface TransactionRepository
+- src/main/java/com/example/demoapp/repository/UserRepository.java — interface UserRepository
+- src/main/java/com/example/demoapp/service/AccountService.java — class AccountService
+- src/main/java/com/example/demoapp/service/BudgetService.java — class BudgetService
+- src/main/java/com/example/demoapp/service/DashboardService.java — class DashboardService
+- src/main/java/com/example/demoapp/service/ForecastService.java — class ForecastService
+- src/main/java/com/example/demoapp/service/GoalService.java — class GoalService
+- src/main/java/com/example/demoapp/service/HouseholdService.java — class HouseholdService
+- src/main/java/com/example/demoapp/service/RecurringPaymentService.java — class RecurringPaymentService
+- src/main/java/com/example/demoapp/service/SettlementService.java — class SettlementService
+- src/main/java/com/example/demoapp/service/TransactionService.java — class TransactionService
+- src/main/java/com/example/demoapp/service/TransferService.java — class TransferService
+- src/main/resources/application.properties — konfiguracja Springa
+- src/test/java/com/example/demoapp/DemoappApplicationTests.java — class DemoappApplicationTests
+- src/test/java/com/example/demoapp/ForecastServiceTest.java — class ForecastServiceTest
+- src/test/java/com/example/demoapp/TransactionServiceTest.java — class TransactionServiceTest
+
+Konfiguracja główna: pom.xml, mvnw, mvnw.cmd, .mvn/wrapper/maven-wrapper.properties, docker-compose.yml, .gitignore.
+Konfiguracja frontendu: package.json, package-lock.json, angular.json, proxy.conf.json, tsconfig*.json.
+
+2. WSZYSTKIE WYSTĄPIENIA ADNOTACJI/DEKORATORÓW
+Różnych nazw: 42. Wspólne nazwy Spring/Angular liczone raz.
+
+@Bean
+  src/main/java/com/example/demoapp/config/OpenApiConfig.java:11
+  src/main/java/com/example/demoapp/config/SecurityConfig.java:12
+
+@BeforeEach
+  src/test/java/com/example/demoapp/ForecastServiceTest.java:21
+  src/test/java/com/example/demoapp/TransactionServiceTest.java:33
+
+@Column
+  src/main/java/com/example/demoapp/model/Account.java:15
+  src/main/java/com/example/demoapp/model/Account.java:18
+  src/main/java/com/example/demoapp/model/Account.java:21
+  src/main/java/com/example/demoapp/model/Budget.java:14
+  src/main/java/com/example/demoapp/model/Budget.java:17
+  src/main/java/com/example/demoapp/model/Category.java:13
+  src/main/java/com/example/demoapp/model/Goal.java:15
+  src/main/java/com/example/demoapp/model/Goal.java:18
+  src/main/java/com/example/demoapp/model/Goal.java:21
+  src/main/java/com/example/demoapp/model/Household.java:13
+  src/main/java/com/example/demoapp/model/Membership.java:13
+  src/main/java/com/example/demoapp/model/Membership.java:16
+  src/main/java/com/example/demoapp/model/RecurringPayment.java:15
+  src/main/java/com/example/demoapp/model/RecurringPayment.java:18
+  src/main/java/com/example/demoapp/model/RecurringPayment.java:21
+  src/main/java/com/example/demoapp/model/RecurringPayment.java:24
+  src/main/java/com/example/demoapp/model/Transaction.java:15
+  src/main/java/com/example/demoapp/model/Transaction.java:18
+  src/main/java/com/example/demoapp/model/Transaction.java:21
+  src/main/java/com/example/demoapp/model/Transaction.java:24
+  src/main/java/com/example/demoapp/model/Transaction.java:28
+  src/main/java/com/example/demoapp/model/User.java:13
+  src/main/java/com/example/demoapp/model/User.java:16
+  src/main/java/com/example/demoapp/model/User.java:19
+
+@Component
+  dukat-ui/src/app/app.ts:17
+  dukat-ui/src/app/components/forecast-panel.ts:6
+  dukat-ui/src/app/components/icon.ts:4
+  src/main/java/com/example/demoapp/aspect/AuditLoggingAspect.java:5
+  src/main/java/com/example/demoapp/init/DemoDataLoader.java:13
+
+@Configuration
+  src/main/java/com/example/demoapp/config/JwtConfig.java:5
+  src/main/java/com/example/demoapp/config/OpenApiConfig.java:8
+  src/main/java/com/example/demoapp/config/RestClientConfig.java:5
+  src/main/java/com/example/demoapp/config/SchedulingConfig.java:6
+  src/main/java/com/example/demoapp/config/SecurityConfig.java:9
+
+@CrossOrigin
+  src/main/java/com/example/demoapp/controller/AccountController.java:15
+  src/main/java/com/example/demoapp/controller/BudgetController.java:13
+  src/main/java/com/example/demoapp/controller/DashboardController.java:11
+  src/main/java/com/example/demoapp/controller/GoalController.java:13
+  src/main/java/com/example/demoapp/controller/HouseholdController.java:13
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java:13
+  src/main/java/com/example/demoapp/controller/TransactionController.java:15
+  src/main/java/com/example/demoapp/controller/TransferController.java:11
+  src/main/java/com/example/demoapp/controller/UserController.java:12
+
+@EnableScheduling
+  src/main/java/com/example/demoapp/config/SchedulingConfig.java:7
+
+@Entity
+  src/main/java/com/example/demoapp/model/Account.java:7
+  src/main/java/com/example/demoapp/model/Budget.java:6
+  src/main/java/com/example/demoapp/model/Category.java:5
+  src/main/java/com/example/demoapp/model/Goal.java:7
+  src/main/java/com/example/demoapp/model/Household.java:5
+  src/main/java/com/example/demoapp/model/Membership.java:5
+  src/main/java/com/example/demoapp/model/RecurringPayment.java:7
+  src/main/java/com/example/demoapp/model/Transaction.java:7
+  src/main/java/com/example/demoapp/model/User.java:5
+
+@Enumerated
+  src/main/java/com/example/demoapp/model/Transaction.java:27
+  src/main/java/com/example/demoapp/model/User.java:22
+
+@ExceptionHandler
+  src/main/java/com/example/demoapp/exception/GlobalExceptionHandler.java:21
+  src/main/java/com/example/demoapp/exception/GlobalExceptionHandler.java:29
+  src/main/java/com/example/demoapp/exception/GlobalExceptionHandler.java:34
+  src/main/java/com/example/demoapp/exception/GlobalExceptionHandler.java:39
+  src/main/java/com/example/demoapp/exception/GlobalExceptionHandler.java:45
+
+@GeneratedValue
+  src/main/java/com/example/demoapp/model/Account.java:12
+  src/main/java/com/example/demoapp/model/Budget.java:11
+  src/main/java/com/example/demoapp/model/Category.java:10
+  src/main/java/com/example/demoapp/model/Goal.java:12
+  src/main/java/com/example/demoapp/model/Household.java:10
+  src/main/java/com/example/demoapp/model/Membership.java:10
+  src/main/java/com/example/demoapp/model/RecurringPayment.java:12
+  src/main/java/com/example/demoapp/model/Transaction.java:12
+  src/main/java/com/example/demoapp/model/User.java:10
+
+@GetMapping
+  src/main/java/com/example/demoapp/controller/AccountController.java:24
+  src/main/java/com/example/demoapp/controller/BudgetController.java:22
+  src/main/java/com/example/demoapp/controller/DashboardController.java:20
+  src/main/java/com/example/demoapp/controller/ForecastController.java:15
+  src/main/java/com/example/demoapp/controller/GoalController.java:22
+  src/main/java/com/example/demoapp/controller/HouseholdController.java:22
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java:22
+  src/main/java/com/example/demoapp/controller/TransactionController.java:24
+  src/main/java/com/example/demoapp/controller/UserController.java:21
+
+@HostListener
+  dukat-ui/src/app/app.ts:248
+
+@Id
+  src/main/java/com/example/demoapp/model/Account.java:11
+  src/main/java/com/example/demoapp/model/Budget.java:10
+  src/main/java/com/example/demoapp/model/Category.java:9
+  src/main/java/com/example/demoapp/model/Goal.java:11
+  src/main/java/com/example/demoapp/model/Household.java:9
+  src/main/java/com/example/demoapp/model/Membership.java:9
+  src/main/java/com/example/demoapp/model/RecurringPayment.java:11
+  src/main/java/com/example/demoapp/model/Transaction.java:11
+  src/main/java/com/example/demoapp/model/User.java:9
+
+@InjectMocks
+  src/test/java/com/example/demoapp/TransactionServiceTest.java:30
+
+@Injectable
+  dukat-ui/src/app/services/account.ts:19
+  dukat-ui/src/app/services/forecast.ts:17
+  dukat-ui/src/app/services/session.ts:6
+  dukat-ui/src/app/services/transaction.ts:29
+
+@Input
+  dukat-ui/src/app/components/forecast-panel.ts:14
+  dukat-ui/src/app/components/forecast-panel.ts:15
+  dukat-ui/src/app/components/forecast-panel.ts:16
+  dukat-ui/src/app/components/icon.ts:23
+
+@JoinColumn
+  src/main/java/com/example/demoapp/model/Transaction.java:33
+
+@ManyToOne
+  src/main/java/com/example/demoapp/model/Transaction.java:32
+
+@Mock
+  src/test/java/com/example/demoapp/TransactionServiceTest.java:24
+  src/test/java/com/example/demoapp/TransactionServiceTest.java:27
+
+@NotBlank
+  src/main/java/com/example/demoapp/dto/account/CreateAccountRequest.java:12
+  src/main/java/com/example/demoapp/dto/account/CreateAccountRequest.java:15
+  src/main/java/com/example/demoapp/dto/transaction/CreateTransactionRequest.java:30
+  src/main/java/com/example/demoapp/dto/transaction/CreateTransactionRequest.java:33
+
+@NotNull
+  src/main/java/com/example/demoapp/dto/account/CreateAccountRequest.java:17
+  src/main/java/com/example/demoapp/dto/transaction/CreateTransactionRequest.java:14
+  src/main/java/com/example/demoapp/dto/transaction/CreateTransactionRequest.java:18
+  src/main/java/com/example/demoapp/dto/transaction/CreateTransactionRequest.java:22
+  src/main/java/com/example/demoapp/dto/transaction/CreateTransactionRequest.java:26
+  src/main/java/com/example/demoapp/dto/transfer/CreateTransferRequest.java:8
+  src/main/java/com/example/demoapp/dto/transfer/CreateTransferRequest.java:10
+  src/main/java/com/example/demoapp/dto/transfer/CreateTransferRequest.java:12
+
+@Override
+  src/main/java/com/example/demoapp/init/DemoDataLoader.java:24
+
+@Pattern
+  src/main/java/com/example/demoapp/dto/transaction/CreateTransactionRequest.java:23
+
+@Positive
+  src/main/java/com/example/demoapp/dto/transaction/CreateTransactionRequest.java:19
+  src/main/java/com/example/demoapp/dto/transfer/CreateTransferRequest.java:13
+
+@PositiveOrZero
+  src/main/java/com/example/demoapp/dto/account/CreateAccountRequest.java:18
+
+@PostMapping
+  src/main/java/com/example/demoapp/controller/AccountController.java:29
+  src/main/java/com/example/demoapp/controller/BudgetController.java:27
+  src/main/java/com/example/demoapp/controller/GoalController.java:27
+  src/main/java/com/example/demoapp/controller/HouseholdController.java:27
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java:27
+  src/main/java/com/example/demoapp/controller/TransactionController.java:29
+  src/main/java/com/example/demoapp/controller/TransferController.java:20
+  src/main/java/com/example/demoapp/controller/UserController.java:26
+
+@Repository
+  src/main/java/com/example/demoapp/repository/AccountRepository.java:9
+  src/main/java/com/example/demoapp/repository/BudgetRepository.java:7
+  src/main/java/com/example/demoapp/repository/CategoryRepository.java:7
+  src/main/java/com/example/demoapp/repository/GoalRepository.java:7
+  src/main/java/com/example/demoapp/repository/HouseholdRepository.java:7
+  src/main/java/com/example/demoapp/repository/RecurringPaymentRepository.java:7
+  src/main/java/com/example/demoapp/repository/TransactionRepository.java:10
+  src/main/java/com/example/demoapp/repository/UserRepository.java:7
+
+@RequestBody
+  src/main/java/com/example/demoapp/controller/AccountController.java:31
+  src/main/java/com/example/demoapp/controller/BudgetController.java:28
+  src/main/java/com/example/demoapp/controller/GoalController.java:28
+  src/main/java/com/example/demoapp/controller/HouseholdController.java:28
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java:28
+  src/main/java/com/example/demoapp/controller/TransactionController.java:31
+  src/main/java/com/example/demoapp/controller/TransferController.java:21
+  src/main/java/com/example/demoapp/controller/UserController.java:27
+
+@RequestMapping
+  src/main/java/com/example/demoapp/controller/AccountController.java:14
+  src/main/java/com/example/demoapp/controller/BudgetController.java:12
+  src/main/java/com/example/demoapp/controller/DashboardController.java:10
+  src/main/java/com/example/demoapp/controller/ForecastController.java:10
+  src/main/java/com/example/demoapp/controller/GoalController.java:12
+  src/main/java/com/example/demoapp/controller/HouseholdController.java:12
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java:12
+  src/main/java/com/example/demoapp/controller/TransactionController.java:14
+  src/main/java/com/example/demoapp/controller/TransferController.java:10
+  src/main/java/com/example/demoapp/controller/UserController.java:11
+
+@RequestParam
+  src/main/java/com/example/demoapp/controller/ForecastController.java:16
+
+@RestController
+  src/main/java/com/example/demoapp/controller/AccountController.java:13
+  src/main/java/com/example/demoapp/controller/BudgetController.java:11
+  src/main/java/com/example/demoapp/controller/DashboardController.java:9
+  src/main/java/com/example/demoapp/controller/ForecastController.java:9
+  src/main/java/com/example/demoapp/controller/GoalController.java:11
+  src/main/java/com/example/demoapp/controller/HouseholdController.java:11
+  src/main/java/com/example/demoapp/controller/RecurringPaymentController.java:11
+  src/main/java/com/example/demoapp/controller/TransactionController.java:13
+  src/main/java/com/example/demoapp/controller/TransferController.java:9
+  src/main/java/com/example/demoapp/controller/UserController.java:10
+
+@RestControllerAdvice
+  src/main/java/com/example/demoapp/exception/GlobalExceptionHandler.java:16
+
+@Service
+  src/main/java/com/example/demoapp/service/AccountService.java:10
+  src/main/java/com/example/demoapp/service/BudgetService.java:9
+  src/main/java/com/example/demoapp/service/DashboardService.java:10
+  src/main/java/com/example/demoapp/service/ForecastService.java:15
+  src/main/java/com/example/demoapp/service/GoalService.java:9
+  src/main/java/com/example/demoapp/service/HouseholdService.java:9
+  src/main/java/com/example/demoapp/service/RecurringPaymentService.java:9
+  src/main/java/com/example/demoapp/service/SettlementService.java:5
+  src/main/java/com/example/demoapp/service/TransactionService.java:15
+  src/main/java/com/example/demoapp/service/TransferService.java:9
+
+@Size
+  src/main/java/com/example/demoapp/dto/account/CreateAccountRequest.java:13
+
+@SpringBootApplication
+  src/main/java/com/example/demoapp/DemoappApplication.java:6
+
+@SpringBootTest
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:22
+
+@Table
+  src/main/java/com/example/demoapp/model/Account.java:8
+  src/main/java/com/example/demoapp/model/Budget.java:7
+  src/main/java/com/example/demoapp/model/Category.java:6
+  src/main/java/com/example/demoapp/model/Goal.java:8
+  src/main/java/com/example/demoapp/model/Household.java:6
+  src/main/java/com/example/demoapp/model/Membership.java:6
+  src/main/java/com/example/demoapp/model/RecurringPayment.java:8
+  src/main/java/com/example/demoapp/model/Transaction.java:8
+  src/main/java/com/example/demoapp/model/User.java:6
+
+@Test
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:42
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:51
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:59
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:67
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:79
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:90
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:102
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:124
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:129
+  src/test/java/com/example/demoapp/ForecastServiceTest.java:24
+  src/test/java/com/example/demoapp/ForecastServiceTest.java:33
+  src/test/java/com/example/demoapp/ForecastServiceTest.java:46
+  src/test/java/com/example/demoapp/ForecastServiceTest.java:55
+  src/test/java/com/example/demoapp/ForecastServiceTest.java:67
+  src/test/java/com/example/demoapp/ForecastServiceTest.java:78
+  src/test/java/com/example/demoapp/TransactionServiceTest.java:38
+  src/test/java/com/example/demoapp/TransactionServiceTest.java:57
+  src/test/java/com/example/demoapp/TransactionServiceTest.java:76
+
+@Transactional
+  src/main/java/com/example/demoapp/service/ForecastService.java:29
+  src/main/java/com/example/demoapp/service/TransactionService.java:34
+  src/main/java/com/example/demoapp/service/TransferService.java:18
+
+@Valid
+  src/main/java/com/example/demoapp/controller/AccountController.java:31
+  src/main/java/com/example/demoapp/controller/TransactionController.java:31
+  src/main/java/com/example/demoapp/controller/TransferController.java:21
+
+@Value
+  src/test/java/com/example/demoapp/DemoappApplicationTests.java:37
+
+3. BLOKI SZABLONÓW ANGULARA (NIE DEKORATORY)
+  dukat-ui/src/app/app.html:1 — @if
+  dukat-ui/src/app/app.html:69 — @if
+  dukat-ui/src/app/app.html:72 — @if
+  dukat-ui/src/app/app.html:99 — @else
+  dukat-ui/src/app/app.html:101 — @if
+  dukat-ui/src/app/app.html:216 — @if
+  dukat-ui/src/app/app.html:219 — @if
+  dukat-ui/src/app/app.html:222 — @if
+  dukat-ui/src/app/app.html:279 — @if
+  dukat-ui/src/app/app.html:293 — @if
+  dukat-ui/src/app/app.html:301 — @for
+  dukat-ui/src/app/app.html:320 — @else
+  dukat-ui/src/app/app.html:351 — @for
+  dukat-ui/src/app/app.html:361 — @empty
+  dukat-ui/src/app/app.html:383 — @if
+  dukat-ui/src/app/app.html:385 — @for
+  dukat-ui/src/app/app.html:407 — @if
+  dukat-ui/src/app/app.html:419 — @if
+  dukat-ui/src/app/app.html:425 — @if
+  dukat-ui/src/app/app.html:447 — @for
+  dukat-ui/src/app/app.html:465 — @for
+  dukat-ui/src/app/app.html:496 — @empty
+  dukat-ui/src/app/app.html:523 — @if
+  dukat-ui/src/app/app.html:530 — @for
+  dukat-ui/src/app/app.html:557 — @if
+  dukat-ui/src/app/app.html:583 — @if
+  dukat-ui/src/app/app.html:625 — @for
+  dukat-ui/src/app/app.html:631 — @for
+  dukat-ui/src/app/app.html:636 — @if
+  dukat-ui/src/app/app.html:656 — @else
+  dukat-ui/src/app/app.html:685 — @if
+  dukat-ui/src/app/components/forecast-panel.html:10 — @if
+  dukat-ui/src/app/components/forecast-panel.html:12 — @else
+  dukat-ui/src/app/components/forecast-panel.html:14 — @else
+  dukat-ui/src/app/components/forecast-panel.html:15 — @if
+  dukat-ui/src/app/components/forecast-panel.html:41 — @for
+  dukat-ui/src/app/components/forecast-panel.html:45 — @if
+  dukat-ui/src/app/components/forecast-panel.html:63 — @if
+  dukat-ui/src/app/components/forecast-panel.html:72 — @for
+  dukat-ui/src/app/components/forecast-panel.html:83 — @else
+  dukat-ui/src/app/components/forecast-panel.html:89 — @else
+  dukat-ui/src/app/components/forecast-panel.html:106 — @if
+  dukat-ui/src/app/components/forecast-panel.html:118 — @for
