@@ -1,12 +1,22 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, OnInit, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { AccountService, Account } from './services/account';
 
 @Component({
-  imports: [RouterOutlet],
   selector: 'app-root',
-  styleUrl: './app.css',
-  templateUrl: './app.html',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './app.component.html',
+  styleUrl: './app.css'
 })
-export class App {
-  protected readonly title = signal('dukat-ui');
+export class AppComponent implements OnInit {
+  private accountService = inject(AccountService);
+  accounts: Account[] = [];
+
+  ngOnInit(): void {
+    this.accountService.getAccounts().subscribe({
+      next: (data) => this.accounts = data,
+      error: (err) => console.error('Błąd pobierania kont:', err)
+    });
+  }
 }
