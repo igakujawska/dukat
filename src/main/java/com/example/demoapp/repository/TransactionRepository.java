@@ -1,14 +1,29 @@
 package com.example.demoapp.repository;
 
 import com.example.demoapp.model.Transaction;
-import org.springframework.data.jpa.repository.JpaRepository;
+import java.time.LocalDate;
+import java.util.List;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.time.LocalDate;
-
 @Repository
-public interface TransactionRepository extends JpaRepository<Transaction, Long> {
-    List<Transaction> findByAccountId(Long accountId);
-    List<Transaction> findByTransactionDateGreaterThanEqualAndTransactionDateLessThan(LocalDate start, LocalDate end);
+public interface TransactionRepository
+  extends JpaRepository<Transaction, Long>
+{
+  @EntityGraph(attributePaths = { "account", "categoryEntity" })
+  List<Transaction> findAllByAccountOwnerIdOrderByTransactionDateDescIdDesc(
+    Long ownerId
+  );
+
+  @EntityGraph(attributePaths = { "account", "categoryEntity" })
+  List<Transaction> findByAccountOwnerIdAndTransactionDateGreaterThanEqualAndTransactionDateLessThan(
+    Long ownerId,
+    LocalDate start,
+    LocalDate end
+  );
+
+  boolean existsByRecurringPaymentIdAndScheduledDate(
+    Long recurringPaymentId,
+    LocalDate date
+  );
 }
