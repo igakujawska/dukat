@@ -1,4 +1,8 @@
 DUKAT — NOTATKA DO NAUKI NA PODSTAWIE MOJEGO PROJEKTU
+UWAGA: ta notatka zachowuje wcześniejszy stan projektu. Aktualną mapę
+komponentów i instrukcję uruchomienia znajdziesz w README.md oraz komentarzach
+kodu. Jest już frontend Angular, DTO transakcji jest klasą z getterami,
+a DemoDataLoader jest zarejestrowanym beanem.
 Stan kodu: 20 października 2026 r.
 Zakres: cały własny kod Java w src/main i src/test, bez wygenerowanego target
 i bez kodu bibliotek. Na końcu jest automatyczny indeks wszystkich adnotacji

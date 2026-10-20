@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RestController
+@RestController // Kontroler obsługuje HTTP; reguły zmiany salda deleguje do serwisu.
 @RequestMapping("/api/transactions")
 @CrossOrigin(origins = "*")
 public class TransactionController {
@@ -26,7 +26,8 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.getAllTransactions());
     }
 
-    @PostMapping
+    @PostMapping // POST tworzy operację; status 201 oznacza utworzenie zasobu.
+    // @Valid uruchamia walidację DTO; błędne pola obsługuje GlobalExceptionHandler.
     public ResponseEntity<TransactionResponse> createTransaction(@Valid @RequestBody CreateTransactionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(transactionService.createTransaction(request));
     }

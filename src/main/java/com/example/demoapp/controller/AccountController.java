@@ -1,5 +1,6 @@
 package com.example.demoapp.controller;
 
+import com.example.demoapp.dto.account.CreateAccountRequest;
 import com.example.demoapp.model.Account;
 import com.example.demoapp.service.AccountService;
 import jakarta.validation.Valid;
@@ -9,8 +10,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RestController
-@RequestMapping("/api/accounts")
+@RestController // Odpowiedzi metod są danymi HTTP (JSON), a nie nazwami szablonów HTML.
+@RequestMapping("/api/accounts") // Wspólny adres dla metod GET i POST tego kontrolera.
 @CrossOrigin(origins = "*")
 public class AccountController {
 
@@ -26,7 +27,8 @@ public class AccountController {
     }
 
     @PostMapping
-    public ResponseEntity<Account> createAccount(@Valid @RequestBody Account account) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(accountService.createAccount(account));
+    // @RequestBody zamienia JSON na DTO; @Valid sprawdza ograniczenia pól przed wywołaniem serwisu.
+    public ResponseEntity<Account> createAccount(@Valid @RequestBody CreateAccountRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(accountService.createAccount(request));
     }
 }

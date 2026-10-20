@@ -4,7 +4,7 @@ import com.example.demoapp.model.TransactionType;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-//dane wysyłane do widoku czy tam frontendu
+// Kontrakt odpowiedzi JSON dla Angulara. Record przenosi dane i nie jest encją JPA.
 
 public record TransactionResponse(
         Long id,

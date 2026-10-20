@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@Service
+@Service // Przypadek użycia: zapis operacji i przeliczenie salda, niezależnie od wyglądu UI.
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
@@ -29,26 +29,33 @@ public class TransactionService {
                 .toList();
     }
 
-    @Transactional //dodanie transakcji+aktualizacja salda konta w jednej spójnej operacji (ACID).
+    // @Transactional obejmuje zapis historii i zmianę salda jedną transakcją bazy.
+    // Błąd RuntimeException wycofa oba zapisy. To nie zastępuje ochrony przed współbieżnymi zmianami.
+    @Transactional
     public TransactionResponse createTransaction(CreateTransactionRequest request) {
-        Account account = accountRepository.findById(request.accountId())
-                .orElseThrow(() -> new IllegalArgumentException("Nie znaleziono konta o ID: " + request.accountId()));
+        if (request.getAmount() == null || request.getAmount().signum() <= 0) {
+            throw new IllegalArgumentException("Kwota transakcji musi być dodatnia");
+        }
+        // Konwersja tekstu kontraktu API na zamknięty zestaw wartości enuma domeny.
+        TransactionType type = TransactionType.valueOf(request.getType());
+        Account account = accountRepository.findById(request.getAccountId())
+                .orElseThrow(() -> new IllegalArgumentException("Nie znaleziono konta o ID: " + request.getAccountId()));
 
         // Przeliczenie salda konta w zależności od typu transakcji
-        if (request.type() == TransactionType.INCOME) {
-            account.setBalance(account.getBalance().add(request.amount()));
+        if (type == TransactionType.INCOME) {
+            account.setBalance(account.getBalance().add(request.getAmount()));
         } else {
-            account.setBalance(account.getBalance().subtract(request.amount()));
+            account.setBalance(account.getBalance().subtract(request.getAmount()));
         }
 
         accountRepository.save(account);
 
         Transaction transaction = new Transaction(
-                request.description(),
-                request.amount(),
-                request.transactionDate(),
-                request.category(),
-                request.type(),
+                request.getDescription(),
+                request.getAmount(),
+                request.getDate(),
+                request.getCategory(),
+                type,
                 account
         );
 
@@ -57,6 +64,7 @@ public class TransactionService {
     }
 
     private TransactionResponse mapToResponse(Transaction t) {
+        // DTO odpowiedzi ujawnia potrzebne pola, bez serializacji całej relacji Account.
         return new TransactionResponse(
                 t.getId(),
                 t.getDescription(),

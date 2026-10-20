@@ -2,6 +2,7 @@ package com.example.demoapp.controller;
 
 import com.example.demoapp.dto.transfer.CreateTransferRequest;
 import com.example.demoapp.service.TransferService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +18,7 @@ public class TransferController {
     }
 
     @PostMapping
-    public ResponseEntity<String> transfer(@RequestBody CreateTransferRequest request) {
+    public ResponseEntity<String> transfer(@Valid @RequestBody CreateTransferRequest request) {
         transferService.executeTransfer(request);
         return ResponseEntity.ok("Przelew został wykonany pomyślnie.");
     }

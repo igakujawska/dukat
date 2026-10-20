@@ -3,8 +3,8 @@ package com.example.demoapp.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
-@Entity //informuje Hibernate, że ta klasa to obiekt(entity) bazodanowe
-//zatem HIbernate ma stworzyc dla niej tabele w PostgreSQL i z automatu mapowac obiekty na wiersze
+// @Entity włącza mapowanie JPA. Tworzenie tabel zależy osobno od ustawienia ddl-auto.
+@Entity
 @Table(name = "accounts") //jawne nadanie nazwy tabeli
 public class Account {
 
@@ -12,7 +12,7 @@ public class Account {
     @GeneratedValue(strategy = GenerationType.IDENTITY) //db ma sama nadawac unikalne id nowym kontom
     private Long id;
 
-    @Column(nullable = false, unique = true) //nazwy kont niepuste i bez powtorzen
+    @Column(nullable = false, unique = true) // Zakaz SQL NULL i powtórzeń; pusty tekst sprawdza walidacja DTO.
     private String name;
 
     @Column(nullable = false)
@@ -25,8 +25,7 @@ public class Account {
      jak gdy 0.1 + 0.2 = 0.30000000000000004) */
 
     //Bezargumentowy konstruktor (wymagany przez JPA/hibernate)
-    public Account() {} //Spring pobierajac dane z db, wpierw tworzy pusty obiekt
-    // używając konstruktora, i potem uzupełnia pola danymi z zapytania SQL
+    public Account() {} // Provider JPA (Hibernate) używa go podczas odtwarzania encji z bazy.
 
     //Konstruktor pomocniczy do tworzenia obiektów w kodzie
     //do wygodnego tworzenia gotowych obiektów np. w serwisach lub podczas testów

@@ -24,13 +24,13 @@ public class Transaction {
     @Column(nullable = false)
     private String category;
 
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.STRING) // W bazie zapisujemy nazwę INCOME/EXPENSE, a nie numer stałej enuma.
     @Column(nullable = false)
     private TransactionType type; // INCOME lub EXPENSE
 
     // Relacja: Wiele transakcji do jednego konta (Foreign Key account_id)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY) // Wiele operacji wskazuje jedno konto; relacja może być doczytana później.
+    @JoinColumn(name = "account_id", nullable = false) // Kolumna klucza obcego w tabeli transactions.
     private Account account;
 
     // 1. Pusty konstruktor wymagany przez JPA

@@ -6,10 +6,10 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 
-@Configuration
+@Configuration // Klasa dostarczająca konfigurację kontenera Springa.
 public class SecurityConfig {
 
-    @Bean
+    @Bean // Zwrócony SecurityFilterChain staje się obiektem zarządzanym przez Spring.
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
@@ -17,6 +17,7 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll() // Dostęp do Swaggera bez logowania
                         .anyRequest().authenticated()
                 )
+                // Frontend przesyła nagłówek Authorization; sam dostęp do Swaggera nie loguje do API.
                 .httpBasic(Customizer.withDefaults());
 
         return http.build();

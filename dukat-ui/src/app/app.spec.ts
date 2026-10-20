@@ -1,24 +1,228 @@
 import { TestBed } from '@angular/core/testing';
-import { App } from './app';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { AppComponent } from './app';
+import { Account } from './services/account';
+import { FinanceTransaction } from './services/transaction';
 
-describe('App', () => {
+// Testujemy zachowanie widoku i kontrakt HTTP, bez dostępu do prawdziwej bazy.
+describe('AppComponent', () => {
+  let http: HttpTestingController;
+  const account: Account = {
+    id: 1,
+    name: 'Konto demonstracyjne',
+    accountType: 'PLN',
+    balance: 950,
+  };
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [App],
-    })
-      .compileComponents();
+      imports: [AppComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
+    http = TestBed.inject(HttpTestingController);
   });
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
+  afterEach(() => http.verify());
 
-  it('should render title', async () => {
-    const fixture = TestBed.createComponent(App);
+  function flushDashboard(
+    accounts: Account[] = [account],
+    transactions: FinanceTransaction[] = [],
+  ) {
+    http.expectOne('/api/accounts').flush(accounts);
+    http.expectOne('/api/transactions').flush(transactions);
+  }
+
+  async function loggedIn(transactions: FinanceTransaction[] = []) {
+    const fixture = TestBed.createComponent(AppComponent);
     await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, dukat-ui');
+    fixture.componentInstance.password = 'password';
+    fixture.componentInstance.loadAccounts();
+    flushDashboard([account], transactions);
+    await fixture.whenStable();
+    return fixture;
+  }
+
+  it('shows login before requesting protected data', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).toContain('dukat');
+    expect(fixture.nativeElement.querySelector('input[type="password"]')).not.toBeNull();
+    http.expectNone('/api/accounts');
+    http.expectNone('/api/transactions');
+  });
+
+  it('renders account data after login and clears the password field', async () => {
+    const fixture = await loggedIn();
+    expect(fixture.nativeElement.textContent).toContain(account.name);
+    expect(fixture.componentInstance.password).toBe('');
+    expect(fixture.componentInstance.totalBalance()).toBe(950);
+    expect(fixture.nativeElement.querySelector('form')).toBeNull();
+  });
+
+  it('distinguishes an empty result from loading', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.password = 'password';
+    fixture.componentInstance.loadAccounts();
+    flushDashboard([], []);
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).toContain('Brak kont do wyświetlenia');
+    expect(fixture.nativeElement.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('explains authentication errors and cancels the other dashboard request', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.password = 'wrong-password';
+    fixture.componentInstance.loadAccounts();
+    const accounts = http.expectOne('/api/accounts');
+    const history = http.expectOne('/api/transactions');
+    accounts.flush('', { status: 401, statusText: 'Unauthorized' });
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+      'Nieprawidłowy login lub hasło',
+    );
+    expect(history.cancelled).toBe(true);
+    expect(fixture.componentInstance.loading()).toBe(false);
+  });
+
+  it('explains when the backend cannot be reached', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.password = 'password';
+    fixture.componentInstance.loadAccounts();
+    const accounts = http.expectOne('/api/accounts');
+    http.expectOne('/api/transactions');
+    accounts.error(new ProgressEvent('error'));
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+      'Nie można połączyć się z backendem',
+    );
+  });
+
+  it('calculates monthly totals and applies search and type filters', async () => {
+    const month = new Date().toLocaleDateString('en-CA').slice(0, 7);
+    const transactions: FinanceTransaction[] = [
+      {
+        id: 1,
+        description: 'Wynagrodzenie',
+        amount: 1000,
+        transactionDate: `${month}-01`,
+        category: 'Praca',
+        type: 'INCOME',
+        accountName: account.name,
+      },
+      {
+        id: 2,
+        description: 'Zakupy na weekend',
+        amount: 250,
+        transactionDate: `${month}-02`,
+        category: 'Jedzenie',
+        type: 'EXPENSE',
+        accountName: account.name,
+      },
+      {
+        id: 3,
+        description: 'Stara operacja',
+        amount: 9999,
+        transactionDate: '2020-01-01',
+        category: 'Praca',
+        type: 'INCOME',
+        accountName: account.name,
+      },
+    ];
+    const fixture = await loggedIn(transactions);
+    const app = fixture.componentInstance;
+    app.changeMonth(month);
+    expect(app.income()).toBe(1000);
+    expect(app.expenses()).toBe(250);
+    expect(app.monthTransactions()).toHaveLength(2);
+    app.navigate('transactions');
+    app.search.set('weekend');
+    expect(app.filteredTransactions().map((t) => t.id)).toEqual([2]);
+    app.typeFilter.set('INCOME');
+    expect(app.filteredTransactions()).toHaveLength(0);
+    app.search.set('');
+    expect(app.filteredTransactions().map((t) => t.id)).toEqual([1]);
+  });
+
+  it('saves a transaction and reloads authoritative balances and history', async () => {
+    const fixture = await loggedIn();
+    const app = fixture.componentInstance;
+    app.openTransaction();
+    app.transactionDraft.description = 'Kawa po pracy';
+    app.transactionDraft.amount = 20;
+    app.saveTransaction();
+    const request = http.expectOne('/api/transactions');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body.accountId).toBe(1);
+    expect(request.request.body.amount).toBe(20);
+    expect(request.request.body.date).toBe(app.transactionDraft.date);
+    const saved: FinanceTransaction = {
+      id: 12,
+      description: 'Kawa po pracy',
+      amount: 20,
+      transactionDate: app.transactionDraft.date,
+      category: app.transactionDraft.category,
+      type: 'EXPENSE',
+      accountName: account.name,
+    };
+    request.flush(saved);
+    flushDashboard([{ ...account, balance: 930 }], [saved]);
+    await fixture.whenStable();
+    expect(app.totalBalance()).toBe(930);
+    expect(app.expenses()).toBe(20);
+    expect(app.modal()).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Kawa po pracy');
+  });
+
+  it('keeps a failed transaction form open with its validation message', async () => {
+    const fixture = await loggedIn();
+    const app = fixture.componentInstance;
+    app.openTransaction();
+    app.transactionDraft.description = 'Zakupy';
+    app.transactionDraft.amount = 20;
+    app.saveTransaction();
+    http
+      .expectOne('/api/transactions')
+      .flush({ amount: 'Kwota jest niepoprawna' }, { status: 400, statusText: 'Bad Request' });
+    await fixture.whenStable();
+    expect(app.modal()).toBe('transaction');
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+      'Kwota jest niepoprawna',
+    );
+  });
+
+  it('creates an account and refreshes the account list', async () => {
+    const fixture = await loggedIn();
+    const app = fixture.componentInstance;
+    app.openAccount();
+    app.accountDraft.name = 'Oszczędności';
+    app.accountDraft.balance = 100;
+    app.saveAccount();
+    const request = http.expectOne('/api/accounts');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body.name).toBe('Oszczędności');
+    const created: Account = {
+      id: 2,
+      name: 'Oszczędności',
+      accountType: 'Konto osobiste',
+      balance: 100,
+    };
+    request.flush(created);
+    flushDashboard([account, created]);
+    await fixture.whenStable();
+    expect(app.accounts()).toHaveLength(2);
+    expect(app.totalBalance()).toBe(1050);
+  });
+
+  it('returns to login and removes displayed data on sign out', async () => {
+    const fixture = await loggedIn();
+    fixture.componentInstance.signOut();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.accounts()).toHaveLength(0);
+    expect(fixture.componentInstance.transactions()).toHaveLength(0);
+    expect(fixture.nativeElement.querySelector('input[type="password"]')).not.toBeNull();
   });
 });

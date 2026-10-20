@@ -17,6 +17,9 @@ public class TransferService {
 
     @Transactional
     public void executeTransfer(CreateTransferRequest request) {
+        if (request.amount() == null || request.amount().signum() <= 0) {
+            throw new IllegalArgumentException("Kwota przelewu musi być dodatnia");
+        }
         if (request.sourceAccountId().equals(request.targetAccountId())) {
             throw new IllegalArgumentException("Konto źródłowe i docelowe muszą być różne.");
         }

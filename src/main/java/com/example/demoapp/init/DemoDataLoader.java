@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.List;
 
-@Component
+@Component // Rejestracja beana jest konieczna, aby Spring wywołał CommandLineRunner po starcie.
 public class DemoDataLoader implements CommandLineRunner {
 
     private final CategoryRepository categoryRepository;
@@ -21,7 +21,7 @@ public class DemoDataLoader implements CommandLineRunner {
         this.accountRepository = accountRepository;
     }
 
-    @Override
+    @Override // Kompilator sprawdza implementację run() z interfejsu CommandLineRunner.
     public void run(String... args) {
         if (categoryRepository.count() == 0) {
             categoryRepository.saveAll(List.of(
@@ -33,6 +33,7 @@ public class DemoDataLoader implements CommandLineRunner {
             ));
         }
 
+        // Dane startowe powstają tylko w pustej tabeli; restart nie resetuje istniejących sald.
         if (accountRepository.count() == 0) {
             accountRepository.save(new Account("Konto Główne", "PLN", new BigDecimal("5000.00")));
         }
