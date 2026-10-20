@@ -1,31 +1,45 @@
 package com.example.demoapp.controller;
 
-import com.example.demoapp.model.Budget;
+import com.example.demoapp.dto.finance.FinanceDtos.*;
 import com.example.demoapp.service.BudgetService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/budgets")
-@CrossOrigin(origins = "*")
 public class BudgetController {
 
-    private final BudgetService budgetService;
+  private final BudgetService service;
 
-    public BudgetController(BudgetService budgetService) {
-        this.budgetService = budgetService;
-    }
+  public BudgetController(BudgetService service) {
+    this.service = service;
+  }
 
-    @GetMapping
-    public ResponseEntity<List<Budget>> getAllBudgets() {
-        return ResponseEntity.ok(budgetService.getAllBudgets());
-    }
+  @GetMapping
+  public List<BudgetResponse> list(@RequestParam String month) {
+    return service.list(month);
+  }
 
-    @PostMapping
-    public ResponseEntity<Budget> createBudget(@RequestBody Budget budget) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(budgetService.createBudget(budget));
-    }
+  @PostMapping
+  @ResponseStatus(HttpStatus.CREATED)
+  public BudgetResponse create(@Valid @RequestBody BudgetRequest r) {
+    return service.create(r);
+  }
+
+  @PutMapping("/{id}")
+  public BudgetResponse update(
+    @PathVariable Long id,
+    @Valid @RequestBody BudgetRequest r
+  ) {
+    return service.update(id, r);
+  }
+
+  @DeleteMapping("/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void delete(@PathVariable Long id) {
+    service.delete(id);
+  }
 }

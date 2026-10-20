@@ -1,27 +1,36 @@
 package com.example.demoapp.service;
 
-import com.example.demoapp.repository.AccountRepository;
-import com.example.demoapp.repository.TransactionRepository;
-import org.springframework.stereotype.Service;
-
-import java.util.HashMap;
+import com.example.demoapp.repository.*;
 import java.util.Map;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DashboardService {
 
-    private final AccountRepository accountRepository;
-    private final TransactionRepository transactionRepository;
+  private final AccountRepository accounts;
+  private final TransactionRepository transactions;
+  private final CurrentUser current;
 
-    public DashboardService(AccountRepository accountRepository, TransactionRepository transactionRepository) {
-        this.accountRepository = accountRepository;
-        this.transactionRepository = transactionRepository;
-    }
+  public DashboardService(
+    AccountRepository accounts,
+    TransactionRepository transactions,
+    CurrentUser current
+  ) {
+    this.accounts = accounts;
+    this.transactions = transactions;
+    this.current = current;
+  }
 
-    public Map<String, Object> getSummary() {
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("accountsCount", accountRepository.count());
-        stats.put("transactionsCount", transactionRepository.count());
-        return stats;
-    }
+  @Transactional(readOnly = true)
+  public Map<String, Object> getSummary() {
+    return Map.of(
+      "accountsCount",
+      accounts.findAllByOwnerIdOrderByIdAsc(current.id()).size(),
+      "transactionsCount",
+      transactions
+        .findAllByAccountOwnerIdOrderByTransactionDateDescIdDesc(current.id())
+        .size()
+    );
+  }
 }
