@@ -3,6 +3,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AppComponent } from './app';
 import { Account } from './services/account';
+import { AccountService } from './services/account';
+import { TransactionService } from './services/transaction';
+import { of, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { vi } from 'vitest';
 import { FinanceTransaction } from './services/transaction';
 
 // Testujemy zachowanie widoku i kontrakt HTTP, bez dostępu do prawdziwej bazy.
@@ -31,6 +36,22 @@ describe('AppComponent', () => {
   ) {
     http.expectOne('/api/accounts').flush(accounts);
     http.expectOne('/api/transactions').flush(transactions);
+    flushForecast();
+  }
+
+  function flushForecast() {
+    const request = http.expectOne((req) => req.url === '/api/forecasts');
+    request.flush({
+      targetMonth: request.request.params.get('month'),
+      status: 'INSUFFICIENT_DATA',
+      method: 'MOVING_AVERAGE_3',
+      predictedExpenses: null,
+      historyMonths: 0,
+      history: [],
+      scores: [],
+      evaluationMonths: 0,
+      assumption: 'Test danych',
+    });
   }
 
   async function loggedIn(transactions: FinanceTransaction[] = []) {
@@ -101,6 +122,39 @@ describe('AppComponent', () => {
     );
   });
 
+  it('explains HTTP 200 JSON parsing errors caused by a missing proxy', async () => {
+    vi.spyOn(TestBed.inject(AccountService), 'refreshAccounts').mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 200,
+            statusText: 'OK',
+            error: new SyntaxError('Unexpected HTML'),
+          }),
+      ),
+    );
+    vi.spyOn(TestBed.inject(TransactionService), 'getTransactions').mockReturnValue(of([]));
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.componentInstance.password = 'password';
+    fixture.componentInstance.loadAccounts();
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+      'HTML zamiast danych API',
+    );
+    expect(fixture.componentInstance.loaded()).toBe(false);
+  });
+
+  it('cancels a previous forecast when the month changes', async () => {
+    const fixture = await loggedIn();
+    fixture.componentInstance.changeMonth('2020-01');
+    const previous = http.expectOne((req) => req.url === '/api/forecasts');
+    fixture.componentInstance.changeMonth('2020-02');
+    expect(previous.cancelled).toBe(true);
+    flushForecast();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.forecast()?.targetMonth).toBe('2020-02');
+  });
+
   it('calculates monthly totals and applies search and type filters', async () => {
     const month = new Date().toLocaleDateString('en-CA').slice(0, 7);
     const transactions: FinanceTransaction[] = [
@@ -135,6 +189,7 @@ describe('AppComponent', () => {
     const fixture = await loggedIn(transactions);
     const app = fixture.componentInstance;
     app.changeMonth(month);
+    flushForecast();
     expect(app.income()).toBe(1000);
     expect(app.expenses()).toBe(250);
     expect(app.monthTransactions()).toHaveLength(2);

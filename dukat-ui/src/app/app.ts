@@ -2,11 +2,13 @@ import { Component, HostListener, computed, inject, signal } from '@angular/core
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { finalize, forkJoin } from 'rxjs';
+import { finalize, forkJoin, Subscription } from 'rxjs';
 import { AccountService, Account } from './services/account';
 import { SessionService } from './services/session';
 import { TransactionService, FinanceTransaction, TransactionType } from './services/transaction';
 import { IconComponent } from './components/icon';
+import { Forecast, ForecastService } from './services/forecast';
+import { ForecastPanelComponent } from './components/forecast-panel';
 
 type View = 'overview' | 'accounts' | 'transactions';
 
@@ -15,15 +17,20 @@ type View = 'overview' | 'accounts' | 'transactions';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CurrencyPipe, DatePipe, FormsModule, IconComponent],
+  imports: [CurrencyPipe, DatePipe, FormsModule, IconComponent, ForecastPanelComponent],
   templateUrl: './app.html',
   // Reguły responsywne w app.css są ostatnie, aby nadpisywały style paneli.
-  styleUrls: ['./styles/panels.css', './styles/details.css', './app.css'],
+  styleUrls: ['./styles/panels.css', './styles/details.css', './app.css', './styles/sapphire.css'],
 })
 export class AppComponent {
   private readonly accountService = inject(AccountService);
   private readonly transactionService = inject(TransactionService);
   private readonly session = inject(SessionService);
+  private readonly forecasts = inject(ForecastService);
+  private forecastRequest?: Subscription;
+  readonly forecast = signal<Forecast | null>(null);
+  readonly forecastLoading = signal(false);
+  readonly forecastError = signal('');
 
   // signal przechowuje stan reaktywny. Zmiana wartości odświeża zależny widok
   // również w domyślnym dla Angulara 22 trybie bez Zone.js.
@@ -156,6 +163,7 @@ export class AppComponent {
           this.transactions.set(transactions);
           this.loaded.set(true);
           this.password = '';
+          this.loadForecast();
         },
         error: (error: HttpErrorResponse) => {
           this.errorMessage.set(this.describeError(error));
@@ -168,6 +176,10 @@ export class AppComponent {
   }
 
   signOut(): void {
+    this.forecastRequest?.unsubscribe();
+    this.forecast.set(null);
+    this.forecastLoading.set(false);
+    this.forecastError.set('');
     this.session.clear();
     this.accounts.set([]);
     this.transactions.set([]);
@@ -185,7 +197,30 @@ export class AppComponent {
   }
 
   changeMonth(value: string): void {
-    if (/^\d{4}-\d{2}$/.test(value)) this.selectedMonth.set(value);
+    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) {
+      this.selectedMonth.set(value);
+      if (this.loaded()) this.loadForecast();
+    }
+  }
+
+  private loadForecast(): void {
+    // Anulowanie chroni przed pokazaniem prognozy dla starego filtra miesiąca.
+    this.forecastRequest?.unsubscribe();
+    this.forecast.set(null);
+    this.forecastError.set('');
+    this.forecastLoading.set(true);
+    this.forecastRequest = this.forecasts
+      .getForecast(this.selectedMonth())
+      .pipe(finalize(() => this.forecastLoading.set(false)))
+      .subscribe({
+        next: (data) => this.forecast.set(data),
+        error: (error: HttpErrorResponse) =>
+          this.forecastError.set(
+            error.status === 400 && typeof error.error === 'string'
+              ? error.error
+              : 'Prognoza jest niedostępna. Uruchom ponownie backend i odśwież dane.',
+          ),
+      });
   }
 
   showAccountHistory(account: Account): void {
@@ -264,6 +299,8 @@ export class AppComponent {
   }
 
   private describeError(error: HttpErrorResponse): string {
+    if (error.status === 200)
+      return 'Serwer zwrócił stronę HTML zamiast danych API. Uruchom ponownie frontend poleceniem npm start w folderze dukat-ui, aby wczytać proxy.';
     if (error.status === 401)
       return 'Nieprawidłowy login lub hasło. Użyj danych z aktualnego uruchomienia backendu.';
     if ([0, 502, 503, 504].includes(error.status))

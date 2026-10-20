@@ -16,7 +16,7 @@
         <div class="welcome-visual" aria-hidden="true">
           <div class="orbit orbit-one"></div>
           <div class="orbit orbit-two"></div>
-          <div class="visual-star">✳</div>
+          <div class="visual-star">◇</div>
           <div class="visual-card">
             <span class="visual-card-icon"><app-icon name="wallet" /></span
             ><span>Wszystko pod kontrolą</span><strong>Twój finansowy<br />punkt widzenia.</strong>
@@ -139,7 +139,7 @@
         </button>
       </nav>
       <div class="sidebar-note">
-        <span class="sidebar-spark">✳</span>
+        <span class="sidebar-spark">◇</span>
         <h3>Małe kroki.<br />Lepsze finanse.</h3>
         <p>Zacznij od zapisywania codziennych wydatków. Reszta stanie się jaśniejsza.</p>
       </div>
@@ -252,7 +252,7 @@
             <span class="tiny-dot"></span> Suma sald · {{ accounts().length }}
             {{ accounts().length === 1 ? 'konto' : 'kont' }}
           </div>
-          <span class="metric-decoration" aria-hidden="true">✳</span>
+          <span class="metric-decoration" aria-hidden="true">◇</span>
         </article>
         <article class="metric">
           <div class="metric-label">
@@ -284,7 +284,7 @@
                 <h2>Jak płyną Twoje pieniądze</h2>
                 <p class="muted">Przychody i wydatki z ostatnich 6 miesięcy</p>
               </div>
-              <span class="panel-icon"><app-icon name="arrows" /></span>
+              <span class="panel-icon" title="Kwoty w PLN"><app-icon name="arrows" /></span>
             </div>
             <div class="chart-legend">
               <span><i class="income-legend"></i> Przychody</span
@@ -374,6 +374,11 @@
             </div>
           </article>
         </section>
+        <app-forecast-panel
+          [forecast]="forecast()"
+          [loading]="forecastLoading()"
+          [error]="forecastError()"
+        />
       }
       @if (view() === 'accounts') {
         <section class="account-cards" aria-label="Lista kont">

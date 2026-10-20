@@ -1,0 +1,129 @@
+<section class="forecast-panel" aria-labelledby="forecast-title">
+  <div class="forecast-heading">
+    <div>
+      <span class="eyebrow">DUKAT / LABORATORIUM DANYCH</span>
+      <h2 id="forecast-title">Historia daje perspektywę.</h2>
+      <p>Szacunek wydatków na wybrany miesiąc, z historii wcześniejszych miesięcy.</p>
+    </div>
+    <span class="model-badge">MODELE STATYSTYCZNE</span>
+  </div>
+  @if (loading) {
+    <p role="status" class="empty-message">Obliczanie prognozy…</p>
+  } @else if (error) {
+    <p class="empty-message">{{ error }}</p>
+  } @else if (forecast; as data) {
+    @if (data.status === 'READY') {
+      <div class="forecast-body">
+        <div class="forecast-summary">
+          <span class="muted">Prognoza · {{ monthName(data.targetMonth) }}</span
+          ><strong>{{ data.predictedExpenses | currency: 'PLN' : 'symbol' : '1.2-2' }}</strong
+          ><span class="chosen-model">{{ methodName(data.method) }}</span>
+          <p>{{ data.historyMonths }} kolejnych miesięcy historii. Horyzont: jeden miesiąc.</p>
+        </div>
+        <div class="chart-container">
+          <div class="legend">
+            <span><i></i> Zapisane wydatki</span><span><i class="forecast-dot"></i> Prognoza</span>
+          </div>
+          <svg
+            viewBox="0 0 760 220"
+            role="img"
+            aria-label="Historia miesięcznych wydatków i oddzielona linią przerywaną prognoza"
+          >
+            <line x1="46" y1="32" x2="714" y2="32" class="grid-line" />
+            <line x1="46" y1="98" x2="714" y2="98" class="grid-line" />
+            <line x1="46" y1="164" x2="714" y2="164" class="grid-line" />
+            <text x="46" y="19" class="axis-label">
+              {{ max | currency: 'PLN' : 'symbol' : '1.0-0' }}
+            </text>
+            <text x="30" y="168" class="axis-label">0</text>
+            <polyline [attr.points]="points" class="history-line" />
+            <polyline [attr.points]="predictionLine" class="prediction-line" />
+            @for (point of data.history; track point.month; let i = $index) {
+              <circle [attr.cx]="x(i)" [attr.cy]="y(point.expenses)" r="4" class="history-point">
+                <title>{{ point.month }}: {{ point.expenses | currency: 'PLN' }}</title>
+              </circle>
+              @if (i % 2 === 0 || data.history.length < 7) {
+                <text [attr.x]="x(i)" y="197" text-anchor="middle" class="axis-label">
+                  {{ monthName(point.month) }}
+                </text>
+              }
+            }
+            <circle
+              [attr.cx]="x(data.history.length)"
+              [attr.cy]="y(data.predictedExpenses!)"
+              r="6"
+              class="prediction-point"
+            />
+            <text [attr.x]="x(data.history.length)" y="197" text-anchor="middle" class="axis-label">
+              {{ monthName(data.targetMonth) }}
+            </text>
+          </svg>
+        </div>
+      </div>
+      @if (data.scores.length) {
+        <div class="model-scores">
+          <div class="evaluation-copy">
+            <strong>Porównanie modeli</strong
+            ><span
+              >MAE w walidacji kroczącej · {{ data.evaluationMonths }} miesięcy · mniej =
+              lepiej</span
+            >
+          </div>
+          @for (score of data.scores; track score.method) {
+            <div class="score" [class.selected]="score.method === data.method">
+              <span>{{ methodName(score.method) }}</span
+              ><strong>{{ score.mae | currency: 'PLN' : 'symbol' : '1.2-2' }}</strong>
+            </div>
+          }
+        </div>
+        <p class="model-note">
+          Wynik walidacji służy także do wyboru modelu; nie jest niezależnym testem ani gwarancją
+          przyszłej dokładności.
+        </p>
+      } @else {
+        <p class="model-note">
+          Porównanie modeli pojawi się przy 6 kolejnych miesiącach historii. Teraz pokazujemy
+          średnią z ostatnich 3 miesięcy.
+        </p>
+      }
+    } @else {
+      <div class="empty-message">
+        <strong>Najpierw historia, potem prognoza.</strong>
+        <p>
+          Potrzebne są co najmniej 3 kolejne miesiące z zapisami przed wybranym miesiącem. Dostępne:
+          {{ data.historyMonths }}. Bieżącego, niepełnego miesiąca nie używamy do uczenia.
+        </p>
+      </div>
+    }
+    <details class="method-details">
+      <summary>Jak liczymy i czego model nie wie?</summary>
+      <p>{{ data.assumption }}</p>
+      <p>
+        Porównujemy średnią ruchomą z 3 miesięcy, trend liniowy OLS z maks. 6 miesięcy oraz
+        powtórzenie ostatniej wartości. Wszystkie są oceniane na tych samych miesiącach, zawsze z
+        użyciem wyłącznie wcześniejszych danych. Dane historyczne i prognoza mają różne oznaczenia.
+      </p>
+      @if (data.history.length) {
+        <table>
+          <caption>
+            Dane wykresu (PLN)
+          </caption>
+          <thead>
+            <tr>
+              <th>Miesiąc</th>
+              <th>Zapisane wydatki</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (point of data.history; track point.month) {
+              <tr>
+                <td>{{ point.month }}</td>
+                <td>{{ point.expenses | currency: 'PLN' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </details>
+  }
+</section>
