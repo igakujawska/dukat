@@ -24,6 +24,7 @@ describe('AccountService', () => {
     const request = http.expectOne('/api/accounts');
     expect(request.request.method).toBe('GET');
     expect(request.request.headers.get('Authorization')).toBe('Basic dXNlcjpwYXNzd29yZA==');
+    expect(request.request.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
     request.flush(accounts);
   });
 });

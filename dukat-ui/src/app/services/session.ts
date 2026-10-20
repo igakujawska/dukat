@@ -13,7 +13,12 @@ export class SessionService {
   }
 
   headers(): HttpHeaders {
-    return new HttpHeaders({ Authorization: this.authorization });
+    // Oznaczamy żądanie aplikacji webowej. Także domyślny Spring Security
+    // rozpoznaje XMLHttpRequest i nie wyświetla natywnego monitu HTTP Basic.
+    return new HttpHeaders({
+      Authorization: this.authorization,
+      'X-Requested-With': 'XMLHttpRequest',
+    });
   }
 
   clear(): void {
