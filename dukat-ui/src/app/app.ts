@@ -6,7 +6,7 @@ import { AccountService, Account } from './services/account';
   selector: 'app-root',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './app.component.html',
+  templateUrl: './app.html',
   styleUrl: './app.css'
 })
 export class AppComponent implements OnInit {
