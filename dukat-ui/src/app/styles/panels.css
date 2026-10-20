@@ -18,7 +18,7 @@
   align-items: center;
   gap: 10px;
   font-size: 12px;
-  color: #75816d;
+  color: #697085;
   margin-bottom: 12px;
 }
 .metric-icon {
@@ -27,8 +27,8 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  color: #68774d;
-  background: #d3e2aa;
+  color: #4d5877;
+  background: #aab9e2;
   font-size: 14px;
 }
 .metric > strong {
@@ -44,15 +44,15 @@
   align-items: center;
   gap: 7px;
   margin-top: 20px;
-  color: #87907e;
+  color: #798095;
   font-size: 10px;
 }
 .balance-metric {
-  background: #e2eccb;
-  border-color: #d7e3bd;
+  background: #cbd4ec;
+  border-color: #bdc7e3;
 }
 .balance-metric .metric-footer {
-  color: #7a8d61;
+  color: #616d8d;
 }
 .balance-metric .tiny-dot {
   width: 4px;
@@ -62,7 +62,7 @@
   position: absolute;
   right: 14px;
   bottom: -33px;
-  color: #cdddac;
+  color: #acb9dd;
   font-size: 125px;
   line-height: 1;
   transform: rotate(18deg);
@@ -74,8 +74,8 @@
   z-index: 1;
 }
 .income-icon {
-  background: #edf5e8;
-  color: #5a9564;
+  background: #e8ebf5;
+  color: #5a6a95;
 }
 .expense-icon {
   background: #f8f1e6;
@@ -88,8 +88,8 @@
   font-weight: 500;
 }
 .income-pill {
-  color: #5d976a;
-  background: #eff6eb;
+  color: #5d6c97;
+  background: #ebeef6;
 }
 .expense-pill {
   color: #a48650;
@@ -125,13 +125,13 @@
   height: 29px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  color: #8c9a87;
+  color: #838a9e;
   font-size: 13px;
 }
 .count-badge {
-  border: 1px solid #e7ebe2;
-  background: #f8f9f5;
-  color: #88937f;
+  border: 1px solid #e2e4eb;
+  background: #f5f6f9;
+  color: #7b8297;
   font-size: 10px;
   padding: 2px 5px;
   border-radius: 5px;
@@ -150,7 +150,7 @@
   display: flex;
   gap: 18px;
   font-size: 10px;
-  color: #889280;
+  color: #7b8297;
   margin-top: 22px;
 }
 .chart-legend span {
@@ -165,10 +165,10 @@
   border-radius: 2px;
 }
 .income-legend {
-  background: #437c60;
+  background: #43527c;
 }
 .expense-legend {
-  background: #c7d6ad;
+  background: #adb8d6;
 }
 .bar-chart {
   position: relative;
@@ -183,7 +183,7 @@
   justify-content: space-between;
 }
 .chart-grid span {
-  border-top: 1px dashed #e8ece4;
+  border-top: 1px dashed #e4e6ec;
 }
 .bar-groups {
   position: absolute;
@@ -211,14 +211,14 @@
   min-width: 5px;
 }
 .income-bar {
-  background: #477a5d;
+  background: #47557a;
 }
 .expense-bar {
-  background: #cbd8b3;
+  background: #b3bdd8;
 }
 .bar-group > span {
   font-size: 10px;
-  color: #a0a89a;
+  color: #969cac;
 }
 .chart-empty {
   display: flex;
@@ -234,8 +234,8 @@
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: #f2f5ed;
-  color: #90a17e;
+  background: #edeff5;
+  color: #7e87a1;
   margin-bottom: 13px;
   font-size: 20px;
 }
@@ -246,7 +246,7 @@
 .chart-empty p {
   font-size: 11px;
   line-height: 1.8;
-  color: #9aa390;
+  color: #8d94a6;
   max-width: 270px;
   margin: 8px 0 12px;
 }
@@ -267,7 +267,7 @@
   padding: 15px 0;
   background: none;
   border: 0;
-  border-bottom: 1px solid #f0f2ec;
+  border-bottom: 1px solid #eceef2;
   text-align: left;
 }
 .account-symbol {
@@ -276,8 +276,8 @@
   width: 34px;
   height: 34px;
   border-radius: 9px;
-  background: #f0f3e8;
-  color: #71815d;
+  background: #e8ebf3;
+  color: #5d6781;
   flex-shrink: 0;
   font-size: 16px;
 }
@@ -295,7 +295,7 @@
 }
 .account-row-copy small {
   font-size: 10px;
-  color: #98a08f;
+  color: #8b92a4;
 }
 .account-value {
   font-size: 12px;
@@ -308,7 +308,7 @@
   gap: 6px;
   justify-content: center;
   font-size: 10px;
-  color: #9fa796;
+  color: #9399aa;
   margin-top: 14px;
 }
 .small-empty {

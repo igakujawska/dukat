@@ -10,7 +10,7 @@
   inset: 0 auto 0 0;
   width: 224px;
   background: var(--sidebar);
-  color: #c8d7ca;
+  color: #c8ccd7;
   padding: 31px 20px 18px;
   display: flex;
   flex-direction: column;
@@ -21,7 +21,7 @@
 .workspace-label {
   font-size: 10px;
   letter-spacing: 1.6px;
-  color: #819b88;
+  color: #80889c;
   margin: 44px 13px 16px;
   font-weight: 600;
 }
@@ -36,7 +36,7 @@
   gap: 13px;
   border: 0;
   background: none;
-  color: #afc1b4;
+  color: #afb4c1;
   min-height: 45px;
   padding: 0 14px;
   border-radius: 9px;
@@ -47,16 +47,16 @@
   font-size: 15px;
 }
 .sidebar nav button:hover {
-  background: #234537;
+  background: #232c45;
 }
 .sidebar nav button.active {
-  background: #2c4b39;
-  color: #e2efc2;
+  background: #2c344b;
+  color: #c2ceef;
   font-weight: 600;
 }
 .nav-active-dot {
   display: none;
-  background: #d9e9b6;
+  background: #b6c4e9;
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -67,17 +67,17 @@
 }
 .nav-count {
   margin-left: auto;
-  color: #b9ceb0;
+  color: #b0b8ce;
   font-size: 10px;
-  border: 1px solid #57715a;
+  border: 1px solid #575e71;
   padding: 1px 6px;
   border-radius: 5px;
 }
 .sidebar-note {
   margin: auto 3px 31px;
   padding: 22px 16px 20px;
-  background: #244334;
-  border: 1px solid #3b5740;
+  background: #242c43;
+  border: 1px solid #3b4257;
   border-radius: 13px;
 }
 .sidebar-spark {
@@ -89,13 +89,13 @@
 .sidebar-note h3 {
   font-size: 18px;
   line-height: 1.35;
-  color: #e2ebd4;
+  color: #d4daeb;
   font-weight: 500;
   letter-spacing: -0.5px;
 }
 .sidebar-note p {
   font-size: 11px;
-  color: #9fb69f;
+  color: #9fa5b6;
   line-height: 1.8;
   margin-top: 13px;
 }
@@ -105,11 +105,11 @@
   justify-content: center;
   gap: 7px;
   font-size: 10px;
-  color: #91ad95;
+  color: #9198ad;
   margin-bottom: 18px;
 }
 .sidebar-status .tiny-dot {
-  color: #b2cd8d;
+  color: #8d9ecd;
   width: 4px;
   height: 4px;
 }
@@ -120,14 +120,14 @@
   width: 100%;
   padding: 14px 3px 0;
   border: 0;
-  border-top: 1px solid #35503d;
-  color: #dce5d6;
+  border-top: 1px solid #353c50;
+  color: #d6dae5;
   background: transparent;
   text-align: left;
 }
 .profile-button > app-icon {
   margin-left: auto;
-  color: #92ab96;
+  color: #9299ab;
   font-size: 14px;
 }
 .avatar {
@@ -136,8 +136,8 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #d4dfbe;
-  color: #3d573f;
+  background: #bec7df;
+  color: #3d4457;
   font-size: 13px;
   font-weight: 600;
   flex-shrink: 0;
@@ -153,7 +153,7 @@
 }
 .profile-copy small {
   font-size: 10px;
-  color: #8fa990;
+  color: #8f96a9;
 }
 .main-content {
   margin-left: 224px;
@@ -175,13 +175,13 @@
 }
 .breadcrumb {
   font-size: 11px;
-  color: #8b968e;
+  color: #838a9e;
 }
 .breadcrumb > app-icon {
   font-size: 10px;
 }
 .breadcrumb strong {
-  color: #556550;
+  color: #505565;
   font-weight: 500;
 }
 .topbar-right {
@@ -192,12 +192,12 @@
   align-items: center;
   gap: 6px;
   font-size: 10px;
-  color: #86927e;
+  color: #7a8196;
 }
 .live-badge .tiny-dot {
   width: 4px;
   height: 4px;
-  color: #75a16e;
+  color: #6e7ca1;
 }
 .small-avatar {
   width: 29px;
@@ -219,7 +219,7 @@
   padding: 33px 0 31px;
 }
 .page-heading .eyebrow {
-  color: #8d9984;
+  color: #81889c;
   font-size: 10px;
   letter-spacing: 1.5px;
 }
@@ -249,17 +249,17 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid #e0e6dc;
+  border: 1px solid #dcdfe6;
   background: white;
   border-radius: 7px;
   padding: 6px 9px;
   font-size: 11px;
-  color: #7e8b7a;
+  color: #747c91;
 }
 .month-picker input {
   border: 0;
   background: none;
-  color: #5b6e56;
+  color: #565c6e;
   font-size: 11px;
   max-width: 130px;
 }
@@ -384,7 +384,7 @@
     position: fixed;
     z-index: 19;
     inset: 0;
-    background: #0d22195c;
+    background: #0d13225c;
     border: 0;
   }
   .main-content {

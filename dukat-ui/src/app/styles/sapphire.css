@@ -1,0 +1,136 @@
+/* Ostatnia warstwa motywu: szafir + szkło; układ responsywny pozostaje w app.css. */
+.sidebar {
+  background:
+    radial-gradient(ellipse at 0 0, #29467566, transparent 65%),
+    linear-gradient(170deg, #14213d, #0e1930);
+  box-shadow: 12px 0 40px #17243e08;
+}
+.sidebar .brand-mark {
+  background: linear-gradient(140deg, #f1e4c7, #c9ab73);
+  color: #203256;
+  box-shadow: 0 0 25px #e0c38914;
+}
+.brand-dot {
+  color: #d9bc82;
+}
+.sidebar nav button.active {
+  background: linear-gradient(100deg, #ffffff1c, #ffffff0c);
+  color: #f3e4c5;
+  border: 1px solid #ffffff12;
+}
+.sidebar nav button {
+  border: 1px solid transparent;
+}
+.sidebar-note {
+  background: linear-gradient(140deg, #ffffff0d, #ffffff03);
+  border-color: #ffffff1c;
+}
+.sidebar-note h3 {
+  font-family: Georgia, serif;
+  font-weight: 400;
+  color: #ece9e3;
+}
+.sidebar-spark {
+  color: #e3c997;
+}
+.sidebar-status .tiny-dot {
+  color: #dcc18e;
+}
+.topbar {
+  border-color: #dce3ef;
+}
+.page-heading h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  font-size: clamp(27px, 2.7vw, 40px);
+  letter-spacing: -1px;
+}
+.page-heading .eyebrow {
+  color: #7c8aad;
+}
+.panel,
+.metric {
+  background: #ffffffb8;
+  border-color: #ffffffdf;
+  box-shadow: 0 8px 35px #293e7006;
+  backdrop-filter: blur(15px);
+}
+.balance-metric {
+  background:
+    radial-gradient(ellipse at top right, #5671c05c, transparent 75%),
+    linear-gradient(115deg, #1c366c, #294b91);
+  border-color: #3d5795;
+  color: #fff;
+  box-shadow: 0 12px 30px #243f7c23;
+}
+.balance-metric .metric-label,
+.balance-metric .metric-footer {
+  color: #c6d1ed;
+}
+.balance-metric .metric-icon {
+  background: #ffffff12;
+  color: #e9d8b5;
+  border: 1px solid #ffffff1a;
+}
+.balance-metric .metric-decoration {
+  color: #a7bce1;
+  opacity: 0.2;
+  font-size: 170px;
+  bottom: -65px;
+  right: 15px;
+}
+.balance-metric > strong {
+  font-weight: 500;
+  letter-spacing: -1px;
+}
+.income-bar,
+.income-legend {
+  background: #476bb4;
+}
+.expense-bar,
+.expense-legend {
+  background: #d8bf8c;
+}
+.panel-heading h2 {
+  color: #354667;
+}
+.account-card {
+  background: linear-gradient(135deg, #ecf1ffdd, #dce6f5c9);
+  border-color: #ffffffdf;
+  box-shadow: 0 10px 35px #26396908;
+  backdrop-filter: blur(15px);
+}
+.alternate-account {
+  background: linear-gradient(135deg, #f7f1e5dd, #ede4d6c9);
+}
+.account-card .text-button {
+  border-color: #bac9e0;
+}
+.category-color.color-0,
+.progress-track .color-0 {
+  background: #4168ae;
+}
+.category-color.color-1,
+.progress-track .color-1 {
+  background: #c8a96d;
+}
+.category-color.color-2,
+.progress-track .color-2 {
+  background: #9a85bc;
+}
+.category-color.color-3,
+.progress-track .color-3 {
+  background: #7c9cae;
+}
+.page-footer {
+  color: #8692a9;
+}
+@media (max-width: 700px) {
+  .page-heading h1 {
+    font-size: 31px;
+  }
+  .panel,
+  .metric {
+    backdrop-filter: blur(8px);
+  }
+}
