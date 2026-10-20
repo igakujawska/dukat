@@ -4,31 +4,33 @@ import com.example.demoapp.dto.transaction.CreateTransactionRequest;
 import com.example.demoapp.dto.transaction.TransactionResponse;
 import com.example.demoapp.service.TransactionService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController // Kontroler obsługuje HTTP; reguły zmiany salda deleguje do serwisu.
 @RequestMapping("/api/transactions")
-@CrossOrigin(origins = "*")
 public class TransactionController {
 
-    private final TransactionService transactionService;
+  private final TransactionService transactionService;
 
-    public TransactionController(TransactionService transactionService) {
-        this.transactionService = transactionService;
-    }
+  public TransactionController(TransactionService transactionService) {
+    this.transactionService = transactionService;
+  }
 
-    @GetMapping
-    public ResponseEntity<List<TransactionResponse>> getAllTransactions() {
-        return ResponseEntity.ok(transactionService.getAllTransactions());
-    }
+  @GetMapping
+  public ResponseEntity<List<TransactionResponse>> getAllTransactions() {
+    return ResponseEntity.ok(transactionService.getAllTransactions());
+  }
 
-    @PostMapping // POST tworzy operację; status 201 oznacza utworzenie zasobu.
-    // @Valid uruchamia walidację DTO; błędne pola obsługuje GlobalExceptionHandler.
-    public ResponseEntity<TransactionResponse> createTransaction(@Valid @RequestBody CreateTransactionRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(transactionService.createTransaction(request));
-    }
+  @PostMapping // POST tworzy operację; status 201 oznacza utworzenie zasobu.
+  // @Valid uruchamia walidację DTO; błędne pola obsługuje GlobalExceptionHandler.
+  public ResponseEntity<TransactionResponse> createTransaction(
+    @Valid @RequestBody CreateTransactionRequest request
+  ) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(
+      transactionService.createTransaction(request)
+    );
+  }
 }
