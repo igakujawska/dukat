@@ -1,27 +1,27 @@
 package com.example.demoapp.model;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "households")
-public class Household {
+public class Household extends OwnedResource {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Column(nullable = false)
+  private String name;
 
-    @Column(nullable = false)
-    private String name;
+  public Household() {}
 
-    public Household() {}
+  public Household(String name) {
+    this.name = name;
+  }
 
-    public Household(String name) {
-        this.name = name;
-    }
+  public String getName() {
+    return name;
+  }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+  public void setName(String value) {
+    this.name = value;
+  }
 }

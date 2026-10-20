@@ -6,43 +6,79 @@ import jakarta.persistence.*;
 @Table(name = "users")
 public class User {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String username;
+  @Column(nullable = false, unique = true)
+  private String username;
 
-    @Column(nullable = false)
-    private String password;
+  @Column(nullable = false)
+  private String password;
 
-    @Column(nullable = false, unique = true)
-    private String email;
+  @Column(nullable = false, unique = true)
+  private String email;
 
-    @Enumerated(EnumType.STRING)
-    private Role role = Role.USER;
+  @Enumerated(EnumType.STRING)
+  private Role role = Role.USER;
 
-    public User() {}
+  @Column(nullable = false)
+  private boolean enabled = true;
 
-    public User(String username, String password, String email, Role role) {
-        this.username = username;
-        this.password = password;
-        this.email = email;
-        this.role = role;
-    }
+  public boolean isEnabled() {
+    return enabled;
+  }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+  public void setEnabled(boolean value) {
+    enabled = value;
+  }
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+  public User() {}
 
-    public String getPassword() { return password; }
-    public void setPassword(String password) { this.password = password; }
+  public User(String username, String password, String email, Role role) {
+    this.username = username;
+    this.password = password;
+    this.email = email;
+    this.role = role;
+  }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+  public Long getId() {
+    return id;
+  }
 
-    public Role getRole() { return role; }
-    public void setRole(Role role) { this.role = role; }
+  public void setId(Long id) {
+    this.id = id;
+  }
+
+  public String getUsername() {
+    return username;
+  }
+
+  public void setUsername(String username) {
+    this.username = username;
+  }
+
+  public String getPassword() {
+    return password;
+  }
+
+  public void setPassword(String password) {
+    this.password = password;
+  }
+
+  public String getEmail() {
+    return email;
+  }
+
+  public void setEmail(String email) {
+    this.email = email;
+  }
+
+  public Role getRole() {
+    return role;
+  }
+
+  public void setRole(Role role) {
+    this.role = role;
+  }
 }

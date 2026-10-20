@@ -6,44 +6,62 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "goals")
-public class Goal {
+public class Goal extends OwnedResource {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Column(nullable = false)
+  private String name;
 
-    @Column(nullable = false)
-    private String name;
+  @Column(nullable = false)
+  private BigDecimal targetAmount;
 
-    @Column(nullable = false)
-    private BigDecimal targetAmount;
+  @Column(nullable = false)
+  private BigDecimal currentAmount = BigDecimal.ZERO;
 
-    @Column(nullable = false)
-    private BigDecimal currentAmount;
+  private LocalDate targetDate;
 
-    private LocalDate targetDate;
+  public Goal() {}
 
-    public Goal() {}
+  public Goal(
+    String name,
+    BigDecimal targetAmount,
+    BigDecimal currentAmount,
+    LocalDate targetDate
+  ) {
+    this.name = name;
+    this.targetAmount = targetAmount;
+    this.currentAmount = currentAmount;
+    this.targetDate = targetDate;
+  }
 
-    public Goal(String name, BigDecimal targetAmount, BigDecimal currentAmount, LocalDate targetDate) {
-        this.name = name;
-        this.targetAmount = targetAmount;
-        this.currentAmount = currentAmount;
-        this.targetDate = targetDate;
-    }
+  public String getName() {
+    return name;
+  }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+  public void setName(String value) {
+    this.name = value;
+  }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+  public BigDecimal getTargetAmount() {
+    return targetAmount;
+  }
 
-    public BigDecimal getTargetAmount() { return targetAmount; }
-    public void setTargetAmount(BigDecimal targetAmount) { this.targetAmount = targetAmount; }
+  public void setTargetAmount(BigDecimal value) {
+    this.targetAmount = value;
+  }
 
-    public BigDecimal getCurrentAmount() { return currentAmount; }
-    public void setCurrentAmount(BigDecimal currentAmount) { this.currentAmount = currentAmount; }
+  public BigDecimal getCurrentAmount() {
+    return currentAmount;
+  }
 
-    public LocalDate getTargetDate() { return targetDate; }
-    public void setTargetDate(LocalDate targetDate) { this.targetDate = targetDate; }
+  public void setCurrentAmount(BigDecimal value) {
+    this.currentAmount = value;
+  }
+
+  public LocalDate getTargetDate() {
+    return targetDate;
+  }
+
+  public void setTargetDate(LocalDate value) {
+    this.targetDate = value;
+  }
 }

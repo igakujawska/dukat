@@ -2,34 +2,61 @@ package com.example.demoapp.model;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "budgets")
-public class Budget {
+public class Budget extends OwnedResource {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Column(nullable = false)
+  private String category;
 
-    @Column(nullable = false)
-    private String category;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "category_id", nullable = false)
+  private Category categoryEntity;
 
-    @Column(nullable = false)
-    private BigDecimal monthlyLimit;
+  @Column(nullable = false)
+  private BigDecimal monthlyLimit;
 
-    public Budget() {}
+  @Column(nullable = false, length = 7)
+  private String month;
 
-    public Budget(String category, BigDecimal monthlyLimit) {
-        this.category = category;
-        this.monthlyLimit = monthlyLimit;
-    }
+  public Budget() {}
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+  public Budget(String category, BigDecimal monthlyLimit) {
+    this.category = category;
+    this.monthlyLimit = monthlyLimit;
+  }
 
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
+  public String getCategory() {
+    return category;
+  }
 
-    public BigDecimal getMonthlyLimit() { return monthlyLimit; }
-    public void setMonthlyLimit(BigDecimal monthlyLimit) { this.monthlyLimit = monthlyLimit; }
+  public void setCategory(String value) {
+    this.category = value;
+  }
+
+  public Category getCategoryEntity() {
+    return categoryEntity;
+  }
+
+  public void setCategoryEntity(Category value) {
+    this.categoryEntity = value;
+  }
+
+  public BigDecimal getMonthlyLimit() {
+    return monthlyLimit;
+  }
+
+  public void setMonthlyLimit(BigDecimal value) {
+    this.monthlyLimit = value;
+  }
+
+  public String getMonth() {
+    return month;
+  }
+
+  public void setMonth(String value) {
+    this.month = value;
+  }
 }

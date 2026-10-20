@@ -2,49 +2,73 @@ package com.example.demoapp.model;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
-// @Entity włącza mapowanie JPA. Tworzenie tabel zależy osobno od ustawienia ddl-auto.
 @Entity
-@Table(name = "accounts") //jawne nadanie nazwy tabeli
-public class Account {
+@Table(name = "accounts")
+public class Account extends OwnedResource {
 
-    @Id //ustawiam id jako klucz główny
-    @GeneratedValue(strategy = GenerationType.IDENTITY) //db ma sama nadawac unikalne id nowym kontom
-    private Long id;
+  @Column(nullable = false)
+  private String name;
 
-    @Column(nullable = false, unique = true) // Zakaz SQL NULL i powtórzeń; pusty tekst sprawdza walidacja DTO.
-    private String name;
+  @Column(nullable = false)
+  private String accountType;
 
-    @Column(nullable = false)
-    private String accountType;
+  @Column(nullable = false)
+  private BigDecimal balance;
 
-    @Column(nullable = false)
-    private BigDecimal balance;
-    /* do reprezentowania pieniędzy wyłącznie typów BigDecimal (NIGDY double/float),
-     bo typy zmiennoprzecinkowe jak double/float -> błędy zaokrągleń w binarnej arytmetyce komputera
-     jak gdy 0.1 + 0.2 = 0.30000000000000004) */
+  @Column(nullable = false)
+  private boolean archived;
 
-    //Bezargumentowy konstruktor (wymagany przez JPA/hibernate)
-    public Account() {} // Provider JPA (Hibernate) używa go podczas odtwarzania encji z bazy.
+  @Version
+  @Column(nullable = false)
+  private long version;
 
-    //Konstruktor pomocniczy do tworzenia obiektów w kodzie
-    //do wygodnego tworzenia gotowych obiektów np. w serwisach lub podczas testów
-    public Account(String name, String accountType, BigDecimal balance) {
-        this.name = name;
-        this.accountType = accountType;
-        this.balance = balance;
-    }
+  public Account() {}
 
-    //Gettery i Settery
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+  public Account(String name, String accountType, BigDecimal balance) {
+    this.name = name;
+    this.accountType = accountType;
+    this.balance = balance;
+  }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+  public String getName() {
+    return name;
+  }
 
-    public String getAccountType() { return accountType; }
-    public void setAccountType(String accountType) { this.accountType = accountType; }
+  public void setName(String value) {
+    this.name = value;
+  }
 
-    public BigDecimal getBalance() { return balance; }
-    public void setBalance(BigDecimal balance) { this.balance = balance; }
+  public String getAccountType() {
+    return accountType;
+  }
+
+  public void setAccountType(String value) {
+    this.accountType = value;
+  }
+
+  public BigDecimal getBalance() {
+    return balance;
+  }
+
+  public void setBalance(BigDecimal value) {
+    this.balance = value;
+  }
+
+  public boolean isArchived() {
+    return archived;
+  }
+
+  public void setArchived(boolean value) {
+    this.archived = value;
+  }
+
+  public long getVersion() {
+    return version;
+  }
+
+  public void setVersion(long value) {
+    this.version = value;
+  }
 }

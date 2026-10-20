@@ -6,45 +6,131 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "recurring_payments")
-public class RecurringPayment {
+public class RecurringPayment extends OwnedResource {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Column(nullable = false)
+  private String title;
 
-    @Column(nullable = false)
-    private String title;
+  @Column(nullable = false)
+  private BigDecimal amount;
 
-    @Column(nullable = false)
-    private BigDecimal amount;
+  @Column(nullable = false)
+  private String frequency;
 
-    @Column(nullable = false)
-    private String frequency; // np. "MONTHLY", "YEARLY"
+  @Column(nullable = false)
+  private LocalDate nextDueDate;
 
-    @Column(nullable = false)
-    private LocalDate nextDueDate;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "account_id")
+  private Account account;
 
-    public RecurringPayment() {}
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "category_id")
+  private Category categoryEntity;
 
-    public RecurringPayment(String title, BigDecimal amount, String frequency, LocalDate nextDueDate) {
-        this.title = title;
-        this.amount = amount;
-        this.frequency = frequency;
-        this.nextDueDate = nextDueDate;
-    }
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private TransactionType type = TransactionType.EXPENSE;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+  @Column(nullable = false)
+  private boolean active = true;
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+  private String lastError;
 
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
+  @Column(nullable = false)
+  private int anchorDay = 1;
 
-    public String getFrequency() { return frequency; }
-    public void setFrequency(String frequency) { this.frequency = frequency; }
+  public int getAnchorDay() {
+    return anchorDay;
+  }
 
-    public LocalDate getNextDueDate() { return nextDueDate; }
-    public void setNextDueDate(LocalDate nextDueDate) { this.nextDueDate = nextDueDate; }
+  public void setAnchorDay(int value) {
+    anchorDay = value;
+  }
+
+  public RecurringPayment() {}
+
+  public RecurringPayment(
+    String title,
+    BigDecimal amount,
+    String frequency,
+    LocalDate nextDueDate
+  ) {
+    this.title = title;
+    this.amount = amount;
+    this.frequency = frequency;
+    this.nextDueDate = nextDueDate;
+  }
+
+  public String getTitle() {
+    return title;
+  }
+
+  public void setTitle(String value) {
+    this.title = value;
+  }
+
+  public BigDecimal getAmount() {
+    return amount;
+  }
+
+  public void setAmount(BigDecimal value) {
+    this.amount = value;
+  }
+
+  public String getFrequency() {
+    return frequency;
+  }
+
+  public void setFrequency(String value) {
+    this.frequency = value;
+  }
+
+  public LocalDate getNextDueDate() {
+    return nextDueDate;
+  }
+
+  public void setNextDueDate(LocalDate value) {
+    this.nextDueDate = value;
+  }
+
+  public Account getAccount() {
+    return account;
+  }
+
+  public void setAccount(Account value) {
+    this.account = value;
+  }
+
+  public Category getCategoryEntity() {
+    return categoryEntity;
+  }
+
+  public void setCategoryEntity(Category value) {
+    this.categoryEntity = value;
+  }
+
+  public TransactionType getType() {
+    return type;
+  }
+
+  public void setType(TransactionType value) {
+    this.type = value;
+  }
+
+  public boolean isActive() {
+    return active;
+  }
+
+  public void setActive(boolean value) {
+    this.active = value;
+  }
+
+  public String getLastError() {
+    return lastError;
+  }
+
+  public void setLastError(String value) {
+    this.lastError = value;
+  }
 }
