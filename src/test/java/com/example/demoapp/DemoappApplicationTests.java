@@ -58,7 +58,33 @@ class DemoappApplicationTests {
 
     @Test
     void accountsRequireAuthentication() throws Exception {
-        assertEquals(401, get("/api/accounts").statusCode());
+        var response = get("/api/accounts");
+        assertEquals(401, response.statusCode());
+        assertTrue(response.headers().firstValue("WWW-Authenticate").isEmpty());
+        assertTrue(response.headers().firstValue("Content-Type").orElse("").contains("application/json"));
+    }
+
+    @Test
+    void invalidBasicCredentialsDoNotTriggerNativeBrowserLogin() throws Exception {
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/accounts"))
+                .header("Authorization", "Basic " + Base64.getEncoder().encodeToString("integration-test:wrong".getBytes(StandardCharsets.UTF_8)))
+                .GET().build();
+        try (var client = HttpClient.newHttpClient()) {
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            assertEquals(401, response.statusCode());
+            assertTrue(response.headers().firstValue("WWW-Authenticate").isEmpty());
+        }
+    }
+
+    @Test
+    void forecastsAreProtectedAndValidateTheMonth() throws Exception {
+        assertEquals(401, get("/api/forecasts").statusCode());
+        assertEquals(400, authenticatedRequest("GET", "/api/forecasts?month=bad", null).statusCode());
+        var response = authenticatedRequest("GET", "/api/forecasts?month=2020-01", null);
+        assertEquals(200, response.statusCode(), response.body());
+        var forecast = json.readTree(response.body());
+        assertEquals("INSUFFICIENT_DATA", forecast.get("status").asText());
+        assertTrue(forecast.get("predictedExpenses").isNull());
     }
 
     @Test
