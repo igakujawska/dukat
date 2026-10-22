@@ -4,6 +4,8 @@ Aplikacja portfolio do ewidencji finansów osobistych: Angular 22, Java 21 / Spr
 
 ## Uruchomienie na Windows
 
+Wybierz jeden tryb. Do edycji i nauki w IntelliJ użyj sekcji „Tryb pracy nad kodem”. Poniższy `Start-Dukat.ps1` uruchamia **także backend i frontend w Dockerze** — wtedy aplikację otwierasz w przeglądarce, bez dodatkowego Run w IntelliJ.
+
 Włącz Docker Desktop, otwórz terminal w katalogu projektu i wykonaj:
 
 ```powershell
@@ -40,23 +42,28 @@ Get-NetTCPConnection -State Listen -LocalPort 8082
 
 ## Tryb pracy nad kodem
 
-Docker służy również do uruchomienia samej bazy. Zatrzymaj kontenery backendu/frontendu, a następnie uruchom backend i Angular osobno:
+To tryb dla IntelliJ i Angulara uruchamianego z terminala. Najpierw w terminalu głównego katalogu projektu wykonaj:
 
 ```powershell
-docker compose stop backend frontend
-docker compose up -d db
-.\mvnw.cmd spring-boot:run
+.\scripts\Prepare-IntelliJ.ps1
 ```
 
-W drugim terminalu:
+Skrypt zatrzymuje kontenery backendu/frontendu tego projektu, pozostawia bazę z danymi, czeka na gotowość PostgreSQL i sprawdza porty. Nie uruchamia własnej kopii Javy ani Angulara. Kontenery aplikacji nie mają już automatycznego restartu po włączeniu Dockera; baza zachowuje tę funkcję.
+
+Następnie:
+
+1. W IntelliJ uruchom **DemoappApplication** przyciskiem **Run**. Poczekaj na `Started DemoappApplication`.
+2. W terminalu głównego katalogu projektu uruchom Angulara:
 
 ```powershell
-Set-Location dukat-ui
-npm ci
-npm start
+npm --prefix dukat-ui start
 ```
 
-W IntelliJ ustaw JDK 21 i katalog roboczy na główny folder projektu, aby Spring odnalazł `.env`. Proxy Angulara przekazuje `/api` na 8082. W Dockerze robi to Nginx, a backend łączy się z bazą przez `db:5432`.
+3. Otwórz [localhost:4200](http://localhost:4200). Terminal Angulara pozostaw uruchomiony.
+
+Jeśli po świeżym pobraniu repo nie masz `dukat-ui/node_modules`, przed pierwszym startem wykonaj `npm --prefix dukat-ui ci`.
+
+W IntelliJ ustaw JDK 21 i katalog roboczy na główny folder projektu, aby Spring odnalazł `.env`. Proxy Angulara przekazuje `/api` na 8082. Baza działa w Dockerze pod `localhost:5433`. Gdy kończysz pracę, zatrzymaj Javę przyciskiem Stop, a Angulara przez Ctrl+C. Do pełnego trybu Docker wrócisz przez `Start-Dukat.ps1` po zatrzymaniu obu lokalnych procesów.
 
 ## Jak działa aplikacja
 
