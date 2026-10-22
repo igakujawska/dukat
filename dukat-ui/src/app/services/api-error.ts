@@ -1,9 +1,17 @@
 import { HttpErrorResponse } from '@angular/common/http';
-export function apiError(error: HttpErrorResponse): string {
+export function apiError(
+  error: HttpErrorResponse,
+  context: 'operation' | 'login' = 'operation',
+): string {
   if (error.status === 200)
     return 'Serwer zwrócił HTML zamiast danych API. Uruchom frontend z proxy albo przez Docker Compose.';
-  if ([0, 502, 503, 504].includes(error.status))
-    return 'Nie można połączyć się z backendem. Sprawdź, czy działa na porcie 8082.';
+  if ([0, 502, 503, 504].includes(error.status)) {
+    // Brak odpowiedzi serwera nie oznacza odrzucenia hasła (HTTP 401).
+    return (
+      'Nie można połączyć się z backendem. Sprawdź, czy działa na porcie 8082.' +
+      (context === 'login' ? ' Nie udało się sprawdzić loginu ani hasła.' : '')
+    );
+  }
   if (error.error && typeof error.error === 'object')
     return (
       Object.values(error.error)

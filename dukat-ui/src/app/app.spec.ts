@@ -58,14 +58,12 @@ describe('AppComponent', () => {
   }
 
   function flushAuth() {
-    http
-      .expectOne('/api/auth/login')
-      .flush({
-        accessToken: 'test-jwt',
-        tokenType: 'Bearer',
-        expiresIn: 3600,
-        user: { id: 1, username: 'user', email: 'user@example.com', role: 'USER' },
-      });
+    http.expectOne('/api/auth/login').flush({
+      accessToken: 'test-jwt',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      user: { id: 1, username: 'user', email: 'user@example.com', role: 'USER' },
+    });
   }
 
   async function loggedIn(transactions: FinanceTransaction[] = []) {
@@ -128,17 +126,26 @@ describe('AppComponent', () => {
     expect(fixture.componentInstance.loading()).toBe(false);
   });
 
-  it('explains when the backend cannot be reached', async () => {
+  it.each([0, 502, 503, 504])('explains unavailable login service (HTTP %s)', async (status) => {
     const fixture = TestBed.createComponent(AppComponent);
     await fixture.whenStable();
     fixture.componentInstance.password = 'password';
     fixture.componentInstance.loadAccounts();
     const auth = http.expectOne('/api/auth/login');
-    auth.error(new ProgressEvent('error'));
+    if (status === 0) auth.error(new ProgressEvent('error'));
+    else auth.flush('<html>Service unavailable</html>', { status, statusText: 'Unavailable' });
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
       'Nie można połączyć się z backendem',
     );
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+      'Nie udało się sprawdzić loginu ani hasła',
+    );
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).not.toContain(
+      'Nieprawidłowy login lub hasło',
+    );
+    expect(fixture.componentInstance.loading()).toBe(false);
+    http.expectNone('/api/accounts');
   });
 
   it('explains HTTP 200 JSON parsing errors caused by a missing proxy', async () => {

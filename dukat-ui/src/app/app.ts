@@ -229,7 +229,7 @@ export class AppComponent {
         this.refresh();
       },
       error: (error: HttpErrorResponse) => {
-        this.errorMessage.set(this.describeError(error));
+        this.errorMessage.set(apiError(error, this.registerMode ? 'operation' : 'login'));
         this.loading.set(false);
       },
     });
