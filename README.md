@@ -40,6 +40,16 @@ Skrypt startowy sprawdza zajęte porty i wykonuje `docker compose up -d --build 
 
 Zarejestruj własny profil w UI albo użyj lokalnego profilu z DUKAT_BOOTSTRAP_USERNAME i DUKAT_BOOTSTRAP_PASSWORD. Po migracji istniejące dane należą do tego profilu. Hasło nie jest już generowane przy każdym starcie. Bootstrap ustawia hasło tylko podczas pierwszego utworzenia profilu; zmiana zmiennej później nie nadpisuje hasła w bazie.
 
+`.env.example` na GitHubie jest publicznym wzorcem. Wartość `replace-with-local-password` oznacza „wstaw własne hasło” i nie jest działającym hasłem. Prawdziwy `.env` pozostaje lokalnie i jest ignorowany przez Git. Na Windows możesz otworzyć go z terminala głównego folderu projektu poleceniem `notepad .env`.
+
+| Zmienna w lokalnym `.env` | Do czego służy |
+| --- | --- |
+| `DUKAT_BOOTSTRAP_USERNAME` / `DUKAT_BOOTSTRAP_PASSWORD` | Pierwszy lokalny profil aplikacji, np. login `user` |
+| `DB_USER` / `DB_PASSWORD` | Techniczne połączenie backendu z bazą PostgreSQL |
+| `JWT_SECRET` | Podpisywanie tokenów przez backend; nie jest hasłem użytkownika |
+
+Profil utworzony formularzem rejestracji ma hasło wybrane podczas rejestracji, zapisane w bazie jako hash BCrypt. Nie odczytujemy go z `.env`.
+
 Zatrzymanie bez usuwania danych:
 
 ```powershell
@@ -76,6 +86,23 @@ npm --prefix dukat-ui start
 ```
 
 3. Otwórz [localhost:4200](http://localhost:4200). Terminal Angulara pozostaw uruchomiony.
+
+### Powrót po zamknięciu terminala lub IntelliJ
+
+Zamknięcie terminala, w którym działa `npm start`, zwykle zatrzymuje serwer Angulara. Otwarta wcześniej karta może nadal wyświetlać stronę z pamięci, mimo że serwer już nie działa. Zamknięcie samej karty przeglądarki nie zatrzymuje tych procesów.
+
+Uruchamiaj ponownie tylko zatrzymaną część:
+
+| Co zostało wyłączone | Co uruchomić |
+| --- | --- |
+| Tylko terminal Angulara | `npm --prefix dukat-ui start` w głównym folderze projektu; pozostaw terminal otwarty |
+| Backend | Run przy `DemoappApplication` w IntelliJ; poczekaj na `Started DemoappApplication` |
+| Docker Desktop / baza | Włącz Docker Desktop, potem `docker compose up -d --wait db`; następnie uruchom backend |
+| Wszystko | Docker Desktop → `Prepare-IntelliJ.ps1` → Run backendu → `npm --prefix dukat-ui start` → localhost:4200 |
+
+`Prepare-IntelliJ.ps1` przygotowuje tryb pracy przed uruchomieniem lokalnego backendu i Angulara. Nie wywołuj go ponownie przy każdym odświeżeniu strony: działające już procesy zajmują porty, więc skrypt zgłosi konflikt. Nie uruchamiaj drugiej kopii procesu, jeśli pierwsza już działa.
+
+Komunikat „Nie można połączyć się z backendem” oznacza problem z połączeniem, a nie odrzucenie hasła. W trybie lokalnym najpierw sprawdź [health backendu](http://localhost:8082/actuator/health): oczekiwany wynik to `{"status":"UP"}`. Dopiero działający backend może zweryfikować login i hasło. Nie zmieniaj `.env` w celu naprawienia wyłączonego procesu.
 
 Jeśli po świeżym pobraniu repo nie masz `dukat-ui/node_modules`, przed pierwszym startem wykonaj `npm --prefix dukat-ui ci`.
 
