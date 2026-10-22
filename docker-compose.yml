@@ -41,7 +41,8 @@ services:
       timeout: 5s
       retries: 12
       start_period: 40s
-    restart: unless-stopped
+    # Backend uruchamiamy swiadomie; nie zajmuje portu IntelliJ po starcie Dockera.
+    restart: "no"
   frontend:
     build: ./dukat-ui
     ports:
@@ -54,6 +55,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-    restart: unless-stopped
+    restart: "no"
 volumes:
   dukat_postgres_data:

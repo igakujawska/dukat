@@ -4,6 +4,8 @@ param()
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
+Write-Host 'TRYB DOCKER: ten skrypt uruchamia tez backend i frontend.'
+Write-Host 'Do pracy z Run w IntelliJ uzyj zamiast niego: .\scripts\Prepare-IntelliJ.ps1'
 if (!(Test-Path -LiteralPath '.env')) { & (Join-Path $PSScriptRoot 'Initialize-Dukat.ps1') }
 docker info --format '{{.ServerVersion}}' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Uruchom Docker Desktop i ponow probe.' }
