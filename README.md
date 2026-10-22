@@ -2,6 +2,22 @@
 
 Aplikacja portfolio do ewidencji finansów osobistych: Angular 22, Java 21 / Spring Boot 4, PostgreSQL 15. Szafirowy interfejs, konta, historia, budżety, cele, płatności cykliczne, przelewy oraz statystyczna prognoza wydatków. Kwoty w PLN. Brak integracji bankowej.
 
+## Co uruchamiamy i gdzie otwieramy stronę
+
+To jedna aplikacja z trzema współpracującymi częściami:
+
+| Część | Odpowiedzialność | Adres lokalny |
+| --- | --- | --- |
+| Angular — frontend | Wyświetla stronę i formularze, wysyła żądania do API | **http://localhost:4200 — tutaj otwierasz aplikację** |
+| Java / Spring Boot — backend | Sprawdza logowanie i dane, oblicza salda, obsługuje operacje | http://localhost:8082 — API, nie główna strona |
+| PostgreSQL — baza | Trwale przechowuje użytkowników, konta i operacje | localhost:5433 — połączenie bazy, nie strona WWW |
+
+Przykład: po kliknięciu „Zapisz transakcję” Angular wysyła żądanie przez proxy do Javy. Backend sprawdza uprawnienia i kwotę, zapisuje operację oraz saldo w PostgreSQL, a potem odsyła wynik do Angulara. Strona pokazuje nowe saldo.
+
+W trybie pracy nad kodem Docker Desktop utrzymuje bazę, Run w IntelliJ uruchamia proces Javy, a `npm start` uruchamia serwer developerski Angulara. Każdy start wykonujesz raz na sesję działania tych procesów. Kolejne otwarcie lub odświeżenie strony nie wymaga ponownego uruchamiania aplikacji.
+
+Terminal i IntelliJ są narzędziami programisty. W gotowym wdrożeniu frontend jest zbudowany do plików, backend działa jako usługa, a baza jako osobna usługa. Serwery lub platforma wdrożeniowa utrzymują ich działanie; użytkownik otwiera adres WWW. Lokalną demonstrację całego stacku uruchamia wariant Docker opisany niżej.
+
 ## Uruchomienie na Windows
 
 Wybierz jeden tryb. Do edycji i nauki w IntelliJ użyj sekcji „Tryb pracy nad kodem”. Poniższy `Start-Dukat.ps1` uruchamia **także backend i frontend w Dockerze** — wtedy aplikację otwierasz w przeglądarce, bez dodatkowego Run w IntelliJ.
@@ -111,14 +127,10 @@ npm --prefix dukat-ui run build
 
 Testy backendu wymagają działającego Docker Desktop: Testcontainers uruchamia oddzielny, tymczasowy PostgreSQL na losowym porcie. Nie korzystają z Twojej bazy. Sprawdzają m.in. migracje, JWT, izolację, walidację, transfery, zachowanie historii, harmonogram i równoległe aktualizacje salda.
 
-## Materiały do nauki i demonstracji
+## Dokumentacja projektu
 
-- `NOTATKA_DO_NAUKI_DUKAT.txt` — przepływ, języki, typy i wszystkie adnotacje/dekoratory.
-- `INDEKS_PLIKOW_I_ADNOTACJI_DUKAT.txt` — pełny indeks źródeł i lokalizacje; odśwież przez `node scripts/generate-study-index.mjs`.
 - `AUDYT_GOTOWOSCI_DUKAT.md` — stan wymagań i dowody sprawdzenia.
-- `QUIZ_DUKAT.md` i `KLUCZ_QUIZU_DUKAT.md` — 35 pytań, 80 punktów.
 - `MODEL_CARD_DUKAT.md` — modele, walidacja czasowa i ograniczenia.
-- `PLAN_COMMITOW.md` — małe grupy zmian do samodzielnego zaznaczenia.
 
 ## Granica portfolio
 

@@ -3,6 +3,15 @@ HELP.md
 .env.*
 !.env.example
 *.local.log
+
+### Prywatne materialy do nauki — pozostaja tylko lokalnie ###
+/QUIZ_DUKAT.md
+/KLUCZ_QUIZU_DUKAT.md
+/NOTATKA_DO_NAUKI_DUKAT.txt
+/INDEKS_PLIKOW_I_ADNOTACJI_DUKAT.txt
+/PLAN_COMMITOW.md
+/scripts/generate-study-index.mjs
+/materialy-prywatne/
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
